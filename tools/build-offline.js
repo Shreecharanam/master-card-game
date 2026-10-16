@@ -14,6 +14,8 @@ import { join, dirname, normalize, relative } from 'node:path';
 const root = fileURLToPath(new URL('..', import.meta.url)); // project root
 const PAGES = process.argv.includes('--pages');
 const CAPACITOR = process.argv.includes('--capacitor');
+// Multiplayer server URL baked into the app (for the Android build).
+const SERVER_URL = process.env.MCG_SERVER || '';
 
 const FILES = [
   'src/core/RNG.js',
@@ -105,7 +107,7 @@ ${css}
 <body>
 <header><h1>Master <span>Card Game</span></h1></header>
 <main id="app"></main>
-<script>
+${SERVER_URL ? `<script>window.MCG_SERVER = ${JSON.stringify(SERVER_URL)};</script>\n` : ''}<script>
 ${bundle}
 </script>
 </body>
