@@ -7,7 +7,7 @@ name: Deploy Cloudflare Worker
 on:
   push:
     branches: [main]
-    paths: ['worker/**', 'src/**']
+    paths: ['worker/**', 'src/**', 'wrangler.toml']
   workflow_dispatch:
 
 jobs:
@@ -29,4 +29,3 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: worker
