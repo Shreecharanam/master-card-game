@@ -59,6 +59,8 @@ export class GameRoom {
         return this.restart(body);
       case 'action':
         return this.action(body);
+      case 'chat':
+        return this.chat(body);
       case 'state':
         return this.stateResponse(player);
       default:
@@ -74,6 +76,7 @@ export class GameRoom {
       seats: [{ id: 'p1', name: (body.name || 'Player').slice(0, 14), isBot: false }],
       engine: null,
       started: false,
+      chat: [],
     };
     return json({ playerId: 'p1' });
   }
@@ -150,6 +153,18 @@ export class GameRoom {
     }
   }
 
+  // In-room chat: a small rolling list of messages.
+  chat(body) {
+    if (!this.room) return json({ error: 'Room not found' }, 404);
+    const seat = this.room.seats.find((s) => s.id === body.player);
+    const text = String(body.text || '').slice(0, 200).trim();
+    if (text) {
+      this.room.chat.push({ name: seat ? seat.name : 'Player', text, at: Date.now() });
+      if (this.room.chat.length > 60) this.room.chat = this.room.chat.slice(-60);
+    }
+    return json({ ok: true });
+  }
+
   stateResponse(player) {
     const room = this.room;
     if (!room) return json({ error: 'Room not found' }, 404);
@@ -159,6 +174,7 @@ export class GameRoom {
       hostId: room.hostId,
       seats: room.seats.map((s) => ({ id: s.id, name: s.name, isBot: s.isBot })),
       you: player,
+      chat: (room.chat || []).slice(-40),
       view: room.engine ? room.engine.snapshot(room.engine.state, player) : null,
     });
   }

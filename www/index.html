@@ -207,6 +207,17 @@ a.dl-link {
   padding: 12px 14px; font-size: 12.5px; color: var(--muted); line-height: 1.7; min-height: 54px;
 }
 
+/* ---------- in-room chat ---------- */
+.chat { background: #150b28; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; }
+.chat-title { font-size: 12px; font-weight: 800; color: var(--gold); margin-bottom: 6px; }
+.chat-msgs { max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.chat-msg { font-size: 13px; color: var(--muted); line-height: 1.45; word-break: break-word; }
+.chat-msg b { color: var(--text); }
+.chat-empty { font-size: 12px; color: var(--muted-2); font-style: italic; }
+.chat-row { display: flex; gap: 8px; }
+.chat-input { flex: 1; min-width: 0; }
+.chat-row button { padding: 10px 14px; }
+
 </style>
 </head>
 <body>
@@ -1618,6 +1629,7 @@ const CAN_GO_ONLINE = !!(typeof window !== "undefined" && window.MCG_SERVER); //
 const API_BASE = (typeof window !== 'undefined' && window.MCG_SERVER) || '';
 
 let mode = null; // 'solo' | 'online'
+let chatDraft = ''; // keeps the chat box text across re-renders
 let engine = null; // solo engine
 let online = null; // { code, playerId, hostId, seats }
 let view = null; // what we render
@@ -1630,6 +1642,12 @@ function el(tag, cls, html) {
   if (cls) e.className = cls;
   if (html != null) e.innerHTML = html;
   return e;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])
+  );
 }
 
 const SUIT_SYM = { S: '\u2660', H: '\u2665', D: '\u2666', C: '\u2663' };
@@ -2069,6 +2087,39 @@ function renderTable() {
     actions.appendChild(el('div', 'hint', `Waiting for ${who ? who.name : '...'}`));
   }
   app.appendChild(actions);
+
+  // ---- chat (online only) ----
+  if (mode === 'online' && online) {
+    const chat = el('div', 'chat');
+    chat.appendChild(el('div', 'chat-title', 'Chat'));
+    const msgs = el('div', 'chat-msgs');
+    const list = v.chat || [];
+    if (!list.length) msgs.appendChild(el('div', 'chat-empty', 'Say hi to your friends'));
+    for (const m of list) {
+      msgs.appendChild(el('div', 'chat-msg', `<b>${escapeHtml(m.name)}:</b> ${escapeHtml(m.text)}`));
+    }
+    chat.appendChild(msgs);
+
+    const row = el('div', 'chat-row');
+    const inp = el('input', 'chat-input');
+    inp.placeholder = 'Message…';
+    inp.value = chatDraft;
+    inp.oninput = () => { chatDraft = inp.value; };
+    const send = el('button', null, 'Send');
+    const doSend = () => {
+      const t = (inp.value || '').trim();
+      if (!t) return;
+      chatDraft = '';
+      inp.value = '';
+      post('/api/chat', { code: online.code, player: online.playerId, text: t }).then(() => poll());
+    };
+    send.onclick = doSend;
+    inp.onkeydown = (e) => { if (e.key === 'Enter') doSend(); };
+    row.appendChild(inp);
+    row.appendChild(send);
+    chat.appendChild(row);
+    app.appendChild(chat);
+  }
 
   // ---- log ----
   const log = el('div', 'log');
