@@ -103,7 +103,7 @@ ${css}
 </style>
 </head>
 <body>
-<header><h1>Master Card Game</h1></header>
+<header><h1>Master <span>Card Game</span></h1></header>
 <main id="app"></main>
 <script>
 ${bundle}

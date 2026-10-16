@@ -342,7 +342,8 @@ function renderTable() {
       }
     }
     const youTag = p.id === myId ? ' (you)' : '';
-    seat.appendChild(el('div', 'name', `<span>${p.name}${youTag}${extra}</span>`));
+    seat.appendChild(el('div', 'name', `<span>${p.name}${youTag}</span>`));
+    if (extra) seat.appendChild(el('div', 'meta', extra.replace(/^ · /, '')));
 
     const cards = el('div', 'cards');
     for (const label of p.cards) cards.appendChild(cardEl(label));
