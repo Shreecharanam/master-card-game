@@ -40,6 +40,33 @@ function escapeHtml(s) {
   );
 }
 
+// ---------- player identity (Option A: a code on this device, no password) ----------
+function store(key, val) {
+  try {
+    if (val === undefined) return localStorage.getItem(key);
+    localStorage.setItem(key, val);
+    return val;
+  } catch {
+    return null;
+  }
+}
+function makeCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+let playerCode = store('mcg_code') || '';
+if (!playerCode) {
+  playerCode = makeCode();
+  store('mcg_code', playerCode);
+}
+let playerName = store('mcg_name') || '';
+function registerPlayer() {
+  if (!CAN_GO_ONLINE) return;
+  post('/api/player/register', { code: playerCode, name: playerName || 'Player' }).catch(() => {});
+}
+
 const SUIT_SYM = { S: '\u2660', H: '\u2665', D: '\u2666', C: '\u2663' };
 function cardEl(label) {
   const div = el('div', 'card');
@@ -154,8 +181,20 @@ function renderHome() {
     const b2 = el('button', null, 'Play with Friends');
     b2.onclick = () => renderOnlineMenu();
     row2.appendChild(b2);
+    const b3 = el('button', 'secondary', 'Friends');
+    b3.onclick = () => renderFriends();
+    row2.appendChild(b3);
   }
   wrap.appendChild(row2);
+  if (CAN_GO_ONLINE) {
+    const cr = el('div', 'controls');
+    cr.appendChild(el('label', null, 'Your code'));
+    cr.appendChild(el('div', 'codebox', playerCode));
+    const sh = el('button', 'ghost', 'Share');
+    sh.onclick = () => shareMyCode();
+    cr.appendChild(sh);
+    wrap.appendChild(cr);
+  }
   if (CAN_GO_ONLINE) {
     wrap.appendChild(el('p', 'hint', 'Play with Friends: create a room and share the 4-letter code. Others open the same address on their phone/laptop. Max 4 players.'));
     const dl = el('a', 'dl-link', 'Download offline app');
@@ -260,6 +299,130 @@ function renderOnlineMenu() {
   back.onclick = renderHome;
   wrap.appendChild(back);
   app.appendChild(wrap);
+}
+
+// ---------- FRIENDS ----------
+function shareMyCode() {
+  const msg =
+    `Add me on Master Card Game — my code is ${playerCode}. ` +
+    `Get the app: https://github.com/Shreecharanam/master-card-game`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+async function inviteFriend(f) {
+  const r = await post('/api/create', { name: playerName || 'Player' });
+  if (r.error) {
+    alert(r.error);
+    return;
+  }
+  const msg =
+    `${f.name}, come play Master Card Game! Room code: ${r.code}. ` +
+    `Open the app → "Play with Friends" → Join → enter the code.`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  online = { code: r.code, playerId: r.playerId, hostId: r.playerId, seats: [] };
+  mode = 'online';
+  renderLobby();
+}
+
+async function renderFriends() {
+  enterScreen();
+  app.innerHTML = '';
+  const wrap = el('div', 'home');
+  wrap.appendChild(el('h2', null, 'Friends'));
+  wrap.appendChild(el('p', null, 'Apna code share karo, ya dost ka code daal kar request bhejo.'));
+
+  const codeRow = el('div', 'controls');
+  codeRow.appendChild(el('label', null, 'Your code'));
+  codeRow.appendChild(el('div', 'codebox', playerCode));
+  const shareBtn = el('button', 'secondary', 'Share');
+  shareBtn.onclick = shareMyCode;
+  codeRow.appendChild(shareBtn);
+  wrap.appendChild(codeRow);
+
+  const nameRow = el('div', 'controls');
+  nameRow.appendChild(el('label', null, 'Name'));
+  const nameInp = el('input');
+  nameInp.placeholder = 'Your name';
+  nameInp.value = playerName || '';
+  nameRow.appendChild(nameInp);
+  const saveBtn = el('button', null, 'Save');
+  saveBtn.onclick = async () => {
+    playerName = nameInp.value.trim().slice(0, 16) || 'Player';
+    store('mcg_name', playerName);
+    await post('/api/player/register', { code: playerCode, name: playerName }).catch(() => {});
+    alert('Name saved: ' + playerName);
+  };
+  nameRow.appendChild(saveBtn);
+  wrap.appendChild(nameRow);
+
+  const addRow = el('div', 'controls');
+  addRow.appendChild(el('label', null, 'Add'));
+  const addInp = el('input');
+  addInp.placeholder = "Friend's code";
+  addInp.style.textTransform = 'uppercase';
+  addRow.appendChild(addInp);
+  const addBtn = el('button', null, 'Send request');
+  addBtn.onclick = async () => {
+    const to = addInp.value.trim().toUpperCase();
+    if (!to) return;
+    if (!playerName) {
+      playerName = 'Player';
+      store('mcg_name', playerName);
+    }
+    await post('/api/player/register', { code: playerCode, name: playerName }).catch(() => {});
+    const r = await post('/api/friend/request', { from: playerCode, to });
+    alert(r.error ? r.error : 'Friend request sent!');
+    if (!r.error) renderFriends();
+  };
+  addRow.appendChild(addBtn);
+  wrap.appendChild(addRow);
+
+  const listBox = el('div', 'friends-box');
+  wrap.appendChild(listBox);
+  app.appendChild(wrap);
+
+  const back = el('button', 'ghost', 'Menu');
+  back.onclick = renderHome;
+  wrap.appendChild(back);
+
+  const data = await post('/api/friend/list', { code: playerCode }).catch(() => null);
+  if (!data || data.error) {
+    listBox.appendChild(el('p', 'hint', 'Friends load nahi ho paye — internet check karo.'));
+    return;
+  }
+  if (data.requests && data.requests.length) {
+    listBox.appendChild(el('div', 'label', 'Requests'));
+    for (const r of data.requests) {
+      const row = el('div', 'friend-row');
+      row.appendChild(el('span', null, r.name));
+      const acc = el('button', null, 'Accept');
+      acc.onclick = async () => {
+        await post('/api/friend/accept', { code: playerCode, from: r.code });
+        renderFriends();
+      };
+      row.appendChild(acc);
+      listBox.appendChild(row);
+    }
+  }
+  listBox.appendChild(el('div', 'label', 'Friends'));
+  if (!data.friends || !data.friends.length) {
+    listBox.appendChild(el('p', 'hint', 'Abhi koi dost nahi — apna code share karo.'));
+  } else {
+    for (const f of data.friends) {
+      const row = el('div', 'friend-row');
+      row.appendChild(el('span', null, f.name));
+      const inv = el('button', 'secondary', 'Invite');
+      inv.onclick = () => inviteFriend(f);
+      row.appendChild(inv);
+      const rm = el('button', 'ghost', 'Remove');
+      rm.onclick = async () => {
+        await post('/api/friend/remove', { code: playerCode, friend: f.code });
+        renderFriends();
+      };
+      row.appendChild(rm);
+      listBox.appendChild(row);
+    }
+  }
 }
 
 function renderLobby() {
@@ -530,4 +693,5 @@ function doAction(action) {
   }
 }
 
+registerPlayer();
 renderHome();

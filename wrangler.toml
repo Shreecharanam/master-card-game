@@ -7,11 +7,20 @@ compatibility_date = "2025-09-01"
 directory = "./www"
 binding = "ASSETS"
 
-# One Durable Object per room.
+# One Durable Object per game room.
 [[durable_objects.bindings]]
 name = "GAME_ROOM"
 class_name = "GameRoom"
 
+# One global Durable Object for players + friendships.
+[[durable_objects.bindings]]
+name = "SOCIAL"
+class_name = "Social"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["GameRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Social"]

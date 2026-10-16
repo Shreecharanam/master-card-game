@@ -180,6 +180,103 @@ export class GameRoom {
   }
 }
 
+// ---- Social: one global Durable Object holding players + friendships ----
+// Uses the Durable Object's SQLite storage, so there is no separate
+// database to create or configure.
+export class Social {
+  constructor(state, env) {
+    this.dstate = state;
+    this.env = env;
+    const sql = state.storage.sql;
+    sql.exec('CREATE TABLE IF NOT EXISTS players (code TEXT PRIMARY KEY, name TEXT, updated INTEGER)');
+    sql.exec(
+      'CREATE TABLE IF NOT EXISTS requests (from_code TEXT, to_code TEXT, created INTEGER, PRIMARY KEY (from_code, to_code))'
+    );
+    sql.exec('CREATE TABLE IF NOT EXISTS friends (a TEXT, b TEXT, created INTEGER, PRIMARY KEY (a, b))');
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const op = url.pathname.replace(/^\//, '');
+    const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {};
+    const q = (k) => (request.method === 'GET' ? url.searchParams.get(k) : body[k]);
+    const sql = this.dstate.storage.sql;
+    const norm = (c) => String(c || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
+    const nameOf = (code) => {
+      const r = sql.exec('SELECT name FROM players WHERE code = ?', code).toArray();
+      return r.length ? r[0].name : code;
+    };
+
+    switch (op) {
+      case 'player/register': {
+        const code = norm(body.code);
+        const name = (String(body.name || 'Player').trim() || 'Player').slice(0, 16);
+        if (!code) return json({ error: 'Missing code' }, 400);
+        sql.exec(
+          'INSERT INTO players (code, name, updated) VALUES (?, ?, ?) ON CONFLICT(code) DO UPDATE SET name = excluded.name, updated = excluded.updated',
+          code,
+          name,
+          Date.now()
+        );
+        return json({ ok: true, code, name });
+      }
+      case 'friend/request': {
+        const from = norm(body.from);
+        const to = norm(body.to);
+        if (!from || !to) return json({ error: 'Missing code' }, 400);
+        if (from === to) return json({ error: "That's your own code" }, 400);
+        if (!sql.exec('SELECT code FROM players WHERE code = ?', to).toArray().length) {
+          return json({ error: 'No player with that code' }, 404);
+        }
+        sql.exec('DELETE FROM requests WHERE from_code = ? AND to_code = ?', to, from);
+        sql.exec(
+          'INSERT OR IGNORE INTO requests (from_code, to_code, created) VALUES (?, ?, ?)',
+          from,
+          to,
+          Date.now()
+        );
+        return json({ ok: true });
+      }
+      case 'friend/accept': {
+        const me = norm(body.code);
+        const other = norm(body.from);
+        if (!me || !other) return json({ error: 'Missing code' }, 400);
+        const a = me < other ? me : other;
+        const b = me < other ? other : me;
+        sql.exec('INSERT OR IGNORE INTO friends (a, b, created) VALUES (?, ?, ?)', a, b, Date.now());
+        sql.exec('DELETE FROM requests WHERE from_code = ? AND to_code = ?', other, me);
+        sql.exec('DELETE FROM requests WHERE from_code = ? AND to_code = ?', me, other);
+        return json({ ok: true });
+      }
+      case 'friend/remove': {
+        const me = norm(body.code);
+        const other = norm(body.friend);
+        const a = me < other ? me : other;
+        const b = me < other ? other : me;
+        sql.exec('DELETE FROM friends WHERE a = ? AND b = ?', a, b);
+        return json({ ok: true });
+      }
+      case 'friend/list': {
+        const me = norm(q('code'));
+        if (!me) return json({ error: 'Missing code' }, 400);
+        const rows = sql.exec('SELECT a, b FROM friends WHERE a = ? OR b = ?', me, me).toArray();
+        const friends = rows.map((r) => {
+          const c = r.a === me ? r.b : r.a;
+          return { code: c, name: nameOf(c) };
+        });
+        const reqs = sql
+          .exec('SELECT from_code FROM requests WHERE to_code = ?', me)
+          .toArray()
+          .map((r) => ({ code: r.from_code, name: nameOf(r.from_code) }));
+        const meRow = sql.exec('SELECT name FROM players WHERE code = ?', me).toArray();
+        return json({ code: me, name: meRow.length ? meRow[0].name : null, friends, requests: reqs });
+      }
+      default:
+        return json({ error: 'Unknown op' }, 404);
+    }
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -200,6 +297,18 @@ export default {
       const data = await res.json();
       if (data.error) return json(data, res.status);
       return json({ code, playerId: data.playerId });
+    }
+
+    if (path === '/api/player/register' || path.startsWith('/api/friend/')) {
+      const stub = env.SOCIAL.get(env.SOCIAL.idFromName('global'));
+      const doPath = path.replace('/api', '');
+      const doUrl =
+        'https://social' + doPath + (request.method === 'GET' ? '?' + url.searchParams.toString() : '');
+      const res = await stub.fetch(doUrl, {
+        method: request.method,
+        body: request.method === 'POST' ? await request.text() : undefined,
+      });
+      return new Response(await res.text(), { status: res.status, headers: JSON_HEADERS });
     }
 
     if (path.startsWith('/api/')) {
