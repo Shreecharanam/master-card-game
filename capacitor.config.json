@@ -1,0 +1,8 @@
+{
+  "appId": "com.seekhojeeto.mastercardgame",
+  "appName": "Master Card Game",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

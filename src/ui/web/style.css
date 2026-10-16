@@ -1,0 +1,184 @@
+:root {
+  --felt: #14532d;
+  --felt-2: #0f3d22;
+  --gold: #f5c542;
+  --ink: #0b0b0b;
+  --card-w: 62px;
+  --card-h: 88px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(circle at 50% 0%, #1d6b3c, var(--felt-2) 70%);
+  color: #f4f4f4;
+  min-height: 100vh;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+h1 { font-size: 1.25rem; margin: 0; letter-spacing: 0.5px; }
+
+.controls { display: flex; gap: 10px; align-items: center; }
+
+select, button {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+button {
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 600;
+}
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.pot {
+  text-align: center;
+  font-size: 1.1rem;
+  margin-bottom: 18px;
+}
+.pot b { color: var(--gold); }
+
+.seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.seat {
+  background: rgba(0, 0, 0, 0.28);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 12px;
+  transition: border-color 0.2s;
+}
+.seat.turn { border-color: var(--gold); box-shadow: 0 0 16px rgba(245, 197, 66, 0.4); }
+.seat.folded { opacity: 0.45; }
+
+.seat .name { font-weight: 700; display: flex; justify-content: space-between; }
+.seat .chips { color: #b7f7c8; font-size: 0.85rem; }
+
+.cards { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+.card {
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+.card.red { color: #c1121f; }
+.card.back {
+  background: repeating-linear-gradient(45deg, #1b3a8f, #1b3a8f 6px, #14296a 6px, #14296a 12px);
+  color: #cfd8ff;
+}
+
+#actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 22px 0;
+}
+#actions button.secondary { background: #e6e6e6; }
+
+#log {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: #d6d6d6;
+  min-height: 60px;
+  line-height: 1.6;
+}
+
+.banner {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin: 14px 0;
+}
+
+/* Callbreak: the trick currently on the table */
+.trick {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.trick-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.trick-cap { font-size: 0.72rem; color: #cfe8d6; }
+
+/* 13-card hands: shrink the cards a little */
+.seats .cards .card { width: 46px; height: 66px; font-size: 0.9rem; }
+
+/* Home / lobby screens */
+.home {
+  max-width: 460px;
+  margin: 30px auto;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 14px;
+  padding: 22px;
+}
+.home h2 { margin-top: 0; }
+.home p { color: #cfe8d6; }
+.home p.hint { font-size: 0.82rem; color: #a9c6b3; }
+.home .controls { justify-content: flex-start; margin: 12px 0; }
+
+input {
+  font: inherit;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #2f6b45;
+  background: #0e2f1c;
+  color: #f4f4f4;
+  min-width: 160px;
+}
+
+.lobby-list { margin: 14px 0; display: grid; gap: 8px; }
+.lobby-seat {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e8f3ec;
+}
+
+/* Download link styled like a button */
+a.dl-link {
+  display: inline-block;
+  margin-top: 10px;
+  background: #e6e6e6;
+  color: #0b0b0b;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+}

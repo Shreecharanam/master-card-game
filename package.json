@@ -1,0 +1,26 @@
+{
+  "name": "master-card-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-game card engine (Callbreak 13, Teen Patti) - solo bots, Cloudflare multiplayer, Android app",
+  "scripts": {
+    "play": "node src/ui/cli/play.js teenpatti",
+    "play:callbreak8": "node src/ui/cli/play.js callbreak8",
+    "play:callbreak": "node src/ui/cli/play.js callbreak",
+    "play:highcard": "node src/ui/cli/play.js highcard",
+    "test": "node tests/engine.test.js",
+    "build:offline": "node tools/build-offline.js",
+    "build:pages": "node tools/build-offline.js --pages",
+    "build:app": "node tools/build-offline.js --capacitor",
+    "serve": "node src/ui/web/server.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  },
+  "license": "MIT"
+}

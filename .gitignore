@@ -1,0 +1,5 @@
+node_modules/
+android/
+dist-pages/
+*.log
+.DS_Store

@@ -1,0 +1,1945 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Master Card Game</title>
+<style>
+:root {
+  --felt: #14532d;
+  --felt-2: #0f3d22;
+  --gold: #f5c542;
+  --ink: #0b0b0b;
+  --card-w: 62px;
+  --card-h: 88px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(circle at 50% 0%, #1d6b3c, var(--felt-2) 70%);
+  color: #f4f4f4;
+  min-height: 100vh;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+h1 { font-size: 1.25rem; margin: 0; letter-spacing: 0.5px; }
+
+.controls { display: flex; gap: 10px; align-items: center; }
+
+select, button {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+button {
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 600;
+}
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.pot {
+  text-align: center;
+  font-size: 1.1rem;
+  margin-bottom: 18px;
+}
+.pot b { color: var(--gold); }
+
+.seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.seat {
+  background: rgba(0, 0, 0, 0.28);
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 12px;
+  transition: border-color 0.2s;
+}
+.seat.turn { border-color: var(--gold); box-shadow: 0 0 16px rgba(245, 197, 66, 0.4); }
+.seat.folded { opacity: 0.45; }
+
+.seat .name { font-weight: 700; display: flex; justify-content: space-between; }
+.seat .chips { color: #b7f7c8; font-size: 0.85rem; }
+
+.cards { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+.card {
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+.card.red { color: #c1121f; }
+.card.back {
+  background: repeating-linear-gradient(45deg, #1b3a8f, #1b3a8f 6px, #14296a 6px, #14296a 12px);
+  color: #cfd8ff;
+}
+
+#actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 22px 0;
+}
+#actions button.secondary { background: #e6e6e6; }
+
+#log {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: #d6d6d6;
+  min-height: 60px;
+  line-height: 1.6;
+}
+
+.banner {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin: 14px 0;
+}
+
+/* Callbreak: the trick currently on the table */
+.trick {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.trick-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.trick-cap { font-size: 0.72rem; color: #cfe8d6; }
+
+/* 13-card hands: shrink the cards a little */
+.seats .cards .card { width: 46px; height: 66px; font-size: 0.9rem; }
+
+/* Home / lobby screens */
+.home {
+  max-width: 460px;
+  margin: 30px auto;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 14px;
+  padding: 22px;
+}
+.home h2 { margin-top: 0; }
+.home p { color: #cfe8d6; }
+.home p.hint { font-size: 0.82rem; color: #a9c6b3; }
+.home .controls { justify-content: flex-start; margin: 12px 0; }
+
+input {
+  font: inherit;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #2f6b45;
+  background: #0e2f1c;
+  color: #f4f4f4;
+  min-width: 160px;
+}
+
+.lobby-list { margin: 14px 0; display: grid; gap: 8px; }
+.lobby-seat {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e8f3ec;
+}
+
+/* Download link styled like a button */
+a.dl-link {
+  display: inline-block;
+  margin-top: 10px;
+  background: #e6e6e6;
+  color: #0b0b0b;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+</style>
+</head>
+<body>
+<header><h1>Master Card Game</h1></header>
+<main id="app"></main>
+<script>
+(function () {
+const __mods = {};
+__mods["src/core/RNG.js"] = (function () {
+
+// Seedable PRNG (mulberry32). A fixed seed => the exact same shuffle,
+// which is what makes games replayable and auditable for fairness.
+
+function makeRng(seed = Date.now()) {
+  let a = seed >>> 0;
+  return function rng() {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+return { makeRng };
+})();
+
+__mods["src/core/Card.js"] = (function () {
+
+// A single playing card. Rank is numeric (2..14, 14 = Ace) so that
+// comparisons are trivial; suit is one of S/H/D/C.
+
+const SUITS = ['S', 'H', 'D', 'C'];
+const RANKS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+
+const RANK_LABEL = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+
+class Card {
+  constructor(rank, suit) {
+    this.rank = rank;
+    this.suit = suit;
+  }
+
+  get label() {
+    return (RANK_LABEL[this.rank] || String(this.rank)) + this.suit;
+  }
+
+  toString() {
+    return this.label;
+  }
+
+  toJSON() {
+    return this.label;
+  }
+}
+
+return { SUITS, RANKS, Card };
+})();
+
+__mods["src/core/Deck.js"] = (function () {
+const { Card, SUITS, RANKS } = __mods["src/core/Card.js"];
+
+// A deck of cards. Games never touch raw arrays of cards directly —
+// they always draw from a Deck, so the "where do cards come from"
+// concern lives in exactly one place.
+
+class Deck {
+  constructor(cards) {
+    this.cards = cards ? cards.slice() : Deck.standard();
+  }
+
+  static standard() {
+    const out = [];
+    for (const suit of SUITS) {
+      for (const rank of RANKS) out.push(new Card(rank, suit));
+    }
+    return out;
+  }
+
+  // Fisher-Yates, driven by the engine's seedable RNG.
+  shuffle(rng = Math.random) {
+    for (let i = this.cards.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
+    }
+    return this;
+  }
+
+  draw() {
+    if (this.cards.length === 0) throw new Error('Deck is empty');
+    return this.cards.pop();
+  }
+
+  get size() {
+    return this.cards.length;
+  }
+}
+
+return { Deck };
+})();
+
+__mods["src/core/Player.js"] = (function () {
+
+// A player seat at the table. Holds no game logic — just the data a
+// game needs to track about someone: their hand, chips and status.
+
+class Player {
+  constructor({ id, name, chips = 1000, isHuman = false, isBot = false }) {
+    this.id = id;
+    this.name = name;
+    this.chips = chips;
+    this.isHuman = isHuman;
+    this.isBot = isBot;
+    this.reset();
+  }
+
+  reset() {
+    this.hand = [];
+    this.folded = false;
+    this.seen = false;
+    this.bet = 0; // total chips this player put in this game
+  }
+
+  pay(amount) {
+    const paid = Math.min(amount, this.chips);
+    this.chips -= paid;
+    this.bet += paid;
+    return paid;
+  }
+
+  receive(amount) {
+    this.chips += amount;
+  }
+}
+
+return { Player };
+})();
+
+__mods["src/games/callbreak/tricks.js"] = (function () {
+
+// Callbreak trick rules. Pure functions, no engine state — same style as
+// teenpatti/hand.js, so they are easy to unit-test.
+
+const TRUMP = 'S'; // Spades are always the trump ("hukum") in Callbreak.
+
+// Does `challenger` beat the `current` best card of a trick?
+// led  = suit that was led ; trump = trump suit
+function beats(challenger, current, led, trump = TRUMP) {
+  const cTrump = challenger.suit === trump;
+  const bTrump = current.suit === trump;
+
+  // A trump always beats a non-trump.
+  if (cTrump !== bTrump) return cTrump;
+  // Two trumps: higher rank wins.
+  if (cTrump && bTrump) return challenger.rank > current.rank;
+
+  // Neither is a trump: only the led suit can win, by rank.
+  const cLed = challenger.suit === led;
+  const bLed = current.suit === led;
+  if (cLed !== bLed) return cLed;
+  if (cLed && bLed) return challenger.rank > current.rank;
+
+  // Both are off-suit and non-trump: nobody wins.
+  return false;
+}
+
+// Given a completed trick [{playerId, card}], return the winning entry.
+function trickWinner(trick, trump = TRUMP) {
+  const led = trick[0].card.suit;
+  let best = trick[0];
+  for (let i = 1; i < trick.length; i++) {
+    if (beats(trick[i].card, best.card, led, trump)) best = trick[i];
+  }
+  return best;
+}
+
+// Would `card` win the trick as it currently stands?
+function wouldWin(card, trickSoFar, trump = TRUMP) {
+  if (trickSoFar.length === 0) return true;
+  const led = trickSoFar[0].card.suit;
+  let best = trickSoFar[0].card;
+  for (const entry of trickSoFar) {
+    if (beats(entry.card, best, led, trump)) best = entry.card;
+  }
+  return beats(card, best, led, trump);
+}
+
+return { TRUMP, beats, trickWinner, wouldWin };
+})();
+
+__mods["src/games/teenpatti/hand.js"] = (function () {
+
+// Teen Patti hand evaluation. Pure functions, no engine state — which
+// makes them easy to unit-test and reuse (e.g. for a bot's strength guess).
+
+// Categories, strongest first.
+const CATEGORY = {
+  HIGH_CARD: 1,
+  PAIR: 2,
+  COLOR: 3,
+  SEQUENCE: 4,
+  PURE_SEQUENCE: 5,
+  TRAIL: 6,
+};
+
+const NAMES = {
+  1: 'High Card',
+  2: 'Pair',
+  3: 'Color',
+  4: 'Sequence',
+  5: 'Pure Sequence',
+  6: 'Trail',
+};
+
+// Returns a comparable object: { cat, tie:[...], name }.
+// Compare two with compareHands(a, b) > 0 meaning a wins.
+function evaluateHand(cards) {
+  const rs = cards.map((c) => c.rank).sort((a, b) => b - a);
+  const suits = cards.map((c) => c.suit);
+
+  const flush = suits[0] === suits[1] && suits[1] === suits[2];
+  const trips = rs[0] === rs[1] && rs[1] === rs[2];
+
+  let straight = rs[0] - 1 === rs[1] && rs[1] - 1 === rs[2];
+  let high = rs.slice();
+  // A-2-3 counts as the lowest run in Teen Patti.
+  if (rs[0] === 14 && rs[1] === 3 && rs[2] === 2) {
+    straight = true;
+    high = [3, 2, 1];
+  }
+
+  if (trips) return { cat: CATEGORY.TRAIL, tie: rs, name: NAMES[6] };
+  if (straight && flush) return { cat: CATEGORY.PURE_SEQUENCE, tie: high, name: NAMES[5] };
+  if (straight) return { cat: CATEGORY.SEQUENCE, tie: high, name: NAMES[4] };
+  if (flush) return { cat: CATEGORY.COLOR, tie: rs, name: NAMES[3] };
+
+  if (rs[0] === rs[1] || rs[1] === rs[2]) {
+    const pair = rs[0] === rs[1] ? rs[0] : rs[1];
+    const kicker = rs[0] === rs[1] ? rs[2] : rs[0];
+    return { cat: CATEGORY.PAIR, tie: [pair, kicker], name: NAMES[2] };
+  }
+
+  return { cat: CATEGORY.HIGH_CARD, tie: rs, name: NAMES[1] };
+}
+
+// > 0  => a beats b ;  < 0 => b beats a ;  0 => tie
+function compareHands(a, b) {
+  if (a.cat !== b.cat) return a.cat - b.cat;
+  const len = Math.max(a.tie.length, b.tie.length);
+  for (let i = 0; i < len; i++) {
+    const av = a.tie[i] ?? 0;
+    const bv = b.tie[i] ?? 0;
+    if (av !== bv) return av - bv;
+  }
+  return 0;
+}
+
+return { CATEGORY, evaluateHand, compareHands };
+})();
+
+__mods["src/core/GameEngine.js"] = (function () {
+const { Deck } = __mods["src/core/Deck.js"];
+const { makeRng } = __mods["src/core/RNG.js"];
+
+// The heart of the engine. GameEngine is HEADLESS: it knows nothing about
+// terminals, browsers or buttons. It only holds state and exposes the
+// turn loop. A game (TeenPatti, HighCard, ...) subclasses it and fills in
+// the rules by overriding the five hook methods below.
+//
+// The external driver (CLI / web UI) runs the loop:
+//
+//     engine.start();
+//     while (!engine.isOver()) {
+//       const actions = engine.legalActions();
+//       const action  = await controller.decide({ player: engine.currentPlayer, actions, view: engine.snapshot() });
+//       engine.applyAction(action);
+//     }
+//     const outcome = engine.result();
+//
+// Because the engine never calls a UI, the SAME engine powers the terminal
+// demo, the browser game, and a future mobile app.
+
+class GameEngine {
+  constructor({ players, seed } = {}) {
+    this.players = players ?? [];
+    this.seed = seed ?? Date.now();
+    this.rng = makeRng(this.seed);
+    this.deck = new Deck();
+    this.state = null;
+  }
+
+  start() {
+    this.state = this.createInitialState();
+    this.setup(this.state);
+    this.log(`Game started (seed ${this.seed}).`);
+    return this;
+  }
+
+  // ----- hooks every game must implement -------------------------------
+  createInitialState() {
+    throw new Error(`${this.constructor.name}: createInitialState() not implemented`);
+  }
+  setup(/* state */) {
+    throw new Error(`${this.constructor.name}: setup() not implemented`);
+  }
+  legalActions(/* state */) {
+    return [];
+  }
+  applyAction(/* action, state */) {
+    throw new Error(`${this.constructor.name}: applyAction() not implemented`);
+  }
+  isOver(state = this.state) {
+    return !!state && state.phase === 'done';
+  }
+  result(/* state */) {
+    throw new Error(`${this.constructor.name}: result() not implemented`);
+  }
+
+  // ----- shared helpers available to every game ------------------------
+  get currentPlayer() {
+    return this.state.players[this.state.turnIndex];
+  }
+
+  activePlayers(state = this.state) {
+    return state.players.filter((p) => !p.folded);
+  }
+
+  // Index of the next player who has not folded, wrapping around.
+  nextActiveIndex(from, state = this.state) {
+    const n = state.players.length;
+    for (let step = 1; step <= n; step++) {
+      const i = (from + step) % n;
+      if (!state.players[i].folded) return i;
+    }
+    return from;
+  }
+
+  log(message) {
+    if (this.state) this.state.log.push(message);
+  }
+
+  // A UI-safe view of the state. Other players' cards are hidden unless
+  // the game reveals them (showdown) or the seat is the human's.
+  // `viewerId` lets a server show one player their own cards while hiding
+  // everyone else's. result() must be side-effect free (payouts happen when
+  // a game ends, not when it is reported).
+  snapshot(state = this.state, viewerId = null) {
+    if (!state) return null;
+    const over = this.isOver(state);
+    const winnerName = over ? this.result(state)?.winner?.name ?? null : null;
+    return {
+      game: state.game,
+      phase: state.phase,
+      pot: state.pot ?? 0,
+      turnIndex: state.turnIndex,
+      currentPlayerId: over ? null : this.currentPlayer?.id ?? null,
+      revealHands: !!state.revealHands,
+      over,
+      winnerName,
+      log: state.log.slice(-10),
+      legalActions: over ? [] : this.legalActions(state),
+      players: state.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        chips: p.chips,
+        bet: p.bet,
+        folded: p.folded,
+        seen: p.seen,
+        isHuman: p.isHuman,
+        isBot: !!p.isBot,
+        cards:
+          state.revealHands || p.isHuman || p.id === viewerId
+            ? p.hand.map((c) => c.label)
+            : p.hand.map(() => '??'),
+      })),
+    };
+  }
+}
+
+return { GameEngine };
+})();
+
+__mods["src/games/highcard/HighCard.js"] = (function () {
+const { GameEngine } = __mods["src/core/GameEngine.js"];
+
+// The simplest possible game, kept as a worked example of the contract:
+// deal one card each, everyone shows, highest card wins.
+// Use it to sanity-check the engine loop before adding real rules.
+
+class HighCard extends GameEngine {
+  createInitialState() {
+    return {
+      game: 'HighCard',
+      phase: 'show',
+      pot: 0,
+      turnIndex: 0,
+      shown: 0,
+      revealHands: false,
+      log: [],
+      players: this.players,
+    };
+  }
+
+  setup(state) {
+    state.players.forEach((p) => p.reset());
+    this.deck.shuffle(this.rng);
+    for (const p of state.players) p.hand.push(this.deck.draw());
+    this.log('One card each. Highest card wins.');
+  }
+
+  legalActions(state = this.state) {
+    return [{ type: 'show', label: 'Show card' }];
+  }
+
+  applyAction(action, state = this.state) {
+    if (action.type !== 'show') throw new Error('HighCard only allows "show"');
+    state.shown += 1;
+    if (state.shown >= state.players.length) {
+      state.revealHands = true;
+      state.phase = 'done';
+      const ranked = this.rank(state);
+      const winner = ranked[0].player;
+      winner.receive(state.pot); // payout happens here, once
+      state.winnerId = winner.id;
+      this.log(`${winner.name} wins with ${ranked[0].card.label}.`);
+    } else {
+      state.turnIndex = this.nextActiveIndex(state.turnIndex);
+    }
+    return state;
+  }
+
+  // Pure: reports the outcome without changing anything.
+  rank(state) {
+    return state.players
+      .map((p) => ({ player: p, card: p.hand[0] }))
+      .sort((a, b) => b.card.rank - a.card.rank);
+  }
+
+  result(state = this.state) {
+    const ranked = this.rank(state);
+    const winner = state.players.find((p) => p.id === state.winnerId) || ranked[0].player;
+    return { winner, ranking: ranked };
+  }
+}
+
+return { HighCard };
+})();
+
+__mods["src/games/teenpatti/TeenPatti.js"] = (function () {
+const { GameEngine } = __mods["src/core/GameEngine.js"];
+const { evaluateHand, compareHands } = __mods["src/games/teenpatti/hand.js"];
+
+// Teen Patti: 3 cards each, a few rounds of betting, best hand at the
+// showdown takes the pot. This is the "real" game that proves the engine
+// can carry non-trivial rules.
+
+const BOOT = 10; // ante every player puts in up front
+const MAX_ROUNDS = 3; // betting rounds before forced showdown
+
+class TeenPatti extends GameEngine {
+  createInitialState() {
+    return {
+      game: 'TeenPatti',
+      phase: 'betting',
+      pot: 0,
+      stake: BOOT, // current amount to call
+      round: 1,
+      maxRounds: MAX_ROUNDS,
+      actedThisRound: 0,
+      turnIndex: 0,
+      revealHands: false,
+      log: [],
+      players: this.players,
+    };
+  }
+
+  setup(state) {
+    state.players.forEach((p) => p.reset());
+    this.deck.shuffle(this.rng);
+
+    // Deal 3 cards to each seat.
+    for (let round = 0; round < 3; round++) {
+      for (const p of state.players) p.hand.push(this.deck.draw());
+    }
+
+    // Collect the boot.
+    for (const p of state.players) {
+      const paid = p.pay(BOOT);
+      state.pot += paid;
+    }
+    this.log(`Boot of ${BOOT} collected from every player. Cards dealt.`);
+  }
+
+  legalActions(state = this.state) {
+    const p = state.players[state.turnIndex];
+    const actions = [{ type: 'pack', label: 'Pack (fold)' }];
+    if (p.chips >= state.stake) {
+      actions.push({ type: 'call', amount: state.stake, label: `Call ${state.stake}` });
+    }
+    if (p.chips >= state.stake * 2) {
+      actions.push({ type: 'raise', amount: state.stake * 2, label: `Raise to ${state.stake * 2}` });
+    }
+    if (!p.seen) actions.push({ type: 'see', label: 'See cards' });
+    return actions;
+  }
+
+  applyAction(action, state = this.state) {
+    const p = state.players[state.turnIndex];
+
+    // "see" only reveals your own cards — it does not end your turn.
+    if (action.type === 'see') {
+      p.seen = true;
+      this.log(`${p.name} looked at their cards.`);
+      return state;
+    }
+
+    if (action.type === 'pack') {
+      p.folded = true;
+      this.log(`${p.name} packed.`);
+    } else if (action.type === 'call') {
+      const paid = p.pay(state.stake);
+      state.pot += paid;
+      this.log(`${p.name} called ${paid}.`);
+    } else if (action.type === 'raise') {
+      const paid = p.pay(state.stake * 2);
+      state.pot += paid;
+      state.stake = state.stake * 2;
+      this.log(`${p.name} raised — stake is now ${state.stake}.`);
+    } else {
+      throw new Error(`TeenPatti: unknown action "${action.type}"`);
+    }
+
+    state.actedThisRound += 1;
+    this.advance(state);
+    return state;
+  }
+
+  advance(state) {
+    const active = this.activePlayers(state);
+
+    // Everyone else folded — last player standing wins.
+    if (active.length === 1) {
+      this.finish(state, active);
+      return;
+    }
+
+    // Round complete when every still-active player has acted once.
+    if (state.actedThisRound >= active.length) {
+      state.actedThisRound = 0;
+      state.round += 1;
+      if (state.round > state.maxRounds) {
+        this.finish(state, active);
+        return;
+      }
+      this.log(`--- Round ${state.round} ---`);
+    }
+
+    state.turnIndex = this.nextActiveIndex(state.turnIndex, state);
+  }
+
+  finish(state, active) {
+    state.revealHands = true;
+    state.phase = 'done';
+
+    if (active.length === 1) {
+      const winner = active[0];
+      winner.receive(state.pot);
+      this.log(`${winner.name} wins ${state.pot} (everyone else packed).`);
+      state.winnerId = winner.id;
+      return;
+    }
+
+    const ranked = active
+      .map((player) => ({ player, hand: evaluateHand(player.hand) }))
+      .sort((a, b) => compareHands(b.hand, a.hand));
+
+    const winner = ranked[0].player;
+    winner.receive(state.pot);
+    this.log(
+      `${winner.name} wins ${state.pot} with ${ranked[0].hand.name}.`
+    );
+    state.winnerId = winner.id;
+  }
+
+  result(state = this.state) {
+    const winner = state.players.find((p) => p.id === state.winnerId);
+    const ranking = this.activePlayers(state).map((player) => ({
+      player,
+      hand: evaluateHand(player.hand),
+    }));
+    return { winner, ranking };
+  }
+}
+
+return { TeenPatti };
+})();
+
+__mods["src/games/callbreak/Callbreak.js"] = (function () {
+const { GameEngine } = __mods["src/core/GameEngine.js"];
+const { Deck } = __mods["src/core/Deck.js"];
+const { TRUMP, trickWinner } = __mods["src/games/callbreak/tricks.js"];
+
+// Callbreak — 4 players, 13 cards each, no teams.
+//   Phase 1 (bidding): every player calls how many tricks they will win.
+//   Phase 2 (playing): 13 tricks. Spades are the fixed trump (hukum).
+//                      You must follow suit if you can.
+//   Scoring: made your call -> +call points. Missed it -> -call points.
+//   A full game is 5 rounds; scores add up across rounds.
+
+const ROUNDS = 5;
+
+class Callbreak extends GameEngine {
+  createInitialState() {
+    return {
+      game: 'Callbreak',
+      phase: 'bidding',
+      trump: TRUMP,
+      round: 1,
+      totalRounds: ROUNDS,
+      startIndex: 0,
+      turnIndex: 0,
+      bids: {}, // playerId -> this round's call
+      tricks: {}, // playerId -> tricks won this round
+      scores: {}, // playerId -> cumulative points
+      history: [], // one entry per completed round
+      totalTricks: 0, // sanity counter (should reach 13 * rounds)
+      currentTrick: [], // [{ playerId, card }]
+      revealHands: false,
+      log: [],
+      players: this.players,
+    };
+  }
+
+  setup(state) {
+    for (const p of state.players) state.scores[p.id] = 0;
+    this.startRound(state, 0);
+  }
+
+  // Deal a fresh round. The starting player rotates each round.
+  startRound(state, startIndex) {
+    state.startIndex = startIndex;
+    state.phase = 'bidding';
+    state.bids = {};
+    state.tricks = {};
+    state.currentTrick = [];
+    state.revealHands = false;
+    state.turnIndex = startIndex;
+
+    for (const p of state.players) {
+      p.reset();
+      state.bids[p.id] = null;
+      state.tricks[p.id] = 0;
+    }
+
+    this.deck = new Deck().shuffle(this.rng);
+    for (let i = 0; i < 13; i++) {
+      for (const p of state.players) p.hand.push(this.deck.draw());
+    }
+
+    this.log(
+      `--- Round ${state.round}/${state.totalRounds} --- 13 cards each. ` +
+        `Bidding starts with ${state.players[startIndex].name}.`
+    );
+  }
+
+  legalActions(state = this.state) {
+    if (state.phase === 'bidding') {
+      return Array.from({ length: 13 }, (_, i) => ({
+        type: 'bid',
+        amount: i + 1,
+        label: `Bid ${i + 1}`,
+      }));
+    }
+
+    if (state.phase === 'playing') {
+      const p = state.players[state.turnIndex];
+      const led = state.currentTrick[0]?.card.suit;
+      const mustFollow = led && p.hand.some((c) => c.suit === led);
+      const playable = mustFollow ? p.hand.filter((c) => c.suit === led) : p.hand;
+      return playable.map((c) => ({ type: 'play', card: c.label, label: `Play ${c.label}` }));
+    }
+
+    return [];
+  }
+
+  applyAction(action, state = this.state) {
+    if (state.phase === 'bidding') return this.applyBid(action, state);
+    if (state.phase === 'playing') return this.applyPlay(action, state);
+    throw new Error('Callbreak: game is already over');
+  }
+
+  applyBid(action, state) {
+    if (action.type !== 'bid') throw new Error('Callbreak: expected a bid');
+    const p = state.players[state.turnIndex];
+    state.bids[p.id] = action.amount;
+    this.log(`${p.name} called ${action.amount}.`);
+
+    if (state.players.every((x) => state.bids[x.id] != null)) {
+      state.phase = 'playing';
+      state.turnIndex = state.startIndex; // round starter leads the first trick
+      this.log('Bidding done. Play begins — follow suit if you can.');
+    } else {
+      state.turnIndex = (state.turnIndex + 1) % state.players.length;
+    }
+    return state;
+  }
+
+  applyPlay(action, state) {
+    const p = state.players[state.turnIndex];
+    const idx = p.hand.findIndex((c) => c.label === action.card);
+    if (idx === -1) throw new Error(`${p.name} does not hold ${action.card}`);
+
+    const led = state.currentTrick[0]?.card.suit;
+    if (led && p.hand[idx].suit !== led && p.hand.some((c) => c.suit === led)) {
+      throw new Error(`${p.name} must follow suit (${led})`);
+    }
+
+    const [card] = p.hand.splice(idx, 1);
+    state.currentTrick.push({ playerId: p.id, card });
+    this.log(`${p.name} played ${card.label}.`);
+
+    if (state.currentTrick.length === state.players.length) {
+      this.resolveTrick(state);
+    } else {
+      state.turnIndex = (state.turnIndex + 1) % state.players.length;
+    }
+    return state;
+  }
+
+  resolveTrick(state) {
+    const winnerEntry = trickWinner(state.currentTrick, state.trump);
+    const winner = state.players.find((p) => p.id === winnerEntry.playerId);
+    state.tricks[winner.id] += 1;
+    state.totalTricks += 1;
+    this.log(`${winner.name} takes the trick.`);
+    state.currentTrick = [];
+
+    if (state.players.every((p) => p.hand.length === 0)) {
+      this.endRound(state);
+    } else {
+      state.turnIndex = state.players.findIndex((p) => p.id === winner.id);
+    }
+  }
+
+  endRound(state) {
+    const deltas = {};
+    for (const p of state.players) {
+      const bid = state.bids[p.id];
+      const won = state.tricks[p.id];
+      const delta = won >= bid ? bid : -bid; // penalty = the call amount
+      deltas[p.id] = delta;
+      state.scores[p.id] += delta;
+      const sign = delta >= 0 ? '+' : '';
+      this.log(`${p.name}: called ${bid}, won ${won} → ${sign}${delta} (total ${state.scores[p.id]})`);
+    }
+
+    state.history.push({
+      round: state.round,
+      bids: { ...state.bids },
+      tricks: { ...state.tricks },
+      deltas,
+      totals: { ...state.scores },
+    });
+
+    if (state.round >= state.totalRounds) {
+      state.phase = 'done';
+      state.revealHands = true;
+      this.log(`All ${state.totalRounds} rounds complete.`);
+    } else {
+      state.round += 1;
+      this.startRound(state, (state.startIndex + 1) % state.players.length);
+    }
+  }
+
+  result(state = this.state) {
+    const ranking = [...state.players].sort((a, b) => state.scores[b.id] - state.scores[a.id]);
+    return { winner: ranking[0], ranking, scores: state.scores, history: state.history };
+  }
+
+  // Extend the base snapshot with Callbreak-specific public info.
+  snapshot(state = this.state) {
+    const base = super.snapshot(state);
+    if (!base) return base;
+    base.trump = state.trump;
+    base.round = state.round;
+    base.totalRounds = state.totalRounds;
+    base.bids = state.bids;
+    base.tricks = state.tricks;
+    base.scores = state.scores;
+    base.history = state.history;
+    base.currentTrick = state.currentTrick.map((e) => ({
+      playerId: e.playerId,
+      card: e.card.label,
+    }));
+    return base;
+  }
+}
+
+return { Callbreak };
+})();
+
+__mods["src/games/callbreak8/Callbreak8.js"] = (function () {
+const { GameEngine } = __mods["src/core/GameEngine.js"];
+const { Deck } = __mods["src/core/Deck.js"];
+const { SUITS } = __mods["src/core/Card.js"];
+const { trickWinner } = __mods["src/games/callbreak/tricks.js"];
+
+// Callbreak 13 (house variant) — 4 players, 13 cards, one round:
+//
+//   1. Deal 5 cards each.
+//   2. AUCTION (with 5 cards): players in turn call a number (first call
+//      >= 5). Each higher call cancels the previous one. The highest caller
+//      wins: their suit becomes the TRUMP and they start the game.
+//   3. Deal the remaining 8 cards (13 each). Only your own cards are visible.
+//   4. CALLING: every player (the auction winner included) declares how many
+//      tricks they will win, after seeing all 13 cards. Minimum 1.
+//   5. PLAY: 13 tricks, follow suit if you can.
+//   6. SCORE: made your call -> +call; missed it -> -call.
+//   The lowest scorer deals the next round. Highest total after the last
+//   round wins.
+//
+// Action types: 'auction' | 'pass' | 'trump' | 'declare' | 'play'
+
+const ROUNDS = 5;
+const HAND_SIZE = 13;
+const FIRST_DEAL = 5;
+const AUCTION_MIN = 5;
+const AUCTION_MAX = 8; // 5..8, as in the house rule (easy to widen later)
+const OVERRIDE_MIN = 10; // a final call of 10+ takes the trump choice
+
+const SUIT_LABEL = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' };
+
+class Callbreak8 extends GameEngine {
+  createInitialState() {
+    return {
+      game: 'Callbreak 13',
+      phase: 'auction',
+      round: 1,
+      totalRounds: ROUNDS,
+      handSize: HAND_SIZE,
+      dealerIndex: this.players.length - 1, // so the first auction starts at seat 0
+      turnIndex: 0,
+      startIndex: 0, // auction winner; leads the first trick
+      trump: null,
+      trumpHolderId: null, // who is choosing the trump right now
+      auction: {}, // playerId -> number | 'pass'
+      highestCall: null,
+      highestCallerId: null,
+      auctionActions: 0,
+      callingActions: 0,
+      bids: {}, // playerId -> declared tricks
+      tricks: {}, // playerId -> tricks won this round
+      scores: {}, // playerId -> cumulative points
+      history: [],
+      totalTricks: 0,
+      currentTrick: [],
+      revealHands: false,
+      log: [],
+      players: this.players,
+    };
+  }
+
+  setup(state) {
+    for (const p of state.players) state.scores[p.id] = 0;
+    this.startRound(state);
+  }
+
+  startRound(state) {
+    state.phase = 'auction';
+    state.trump = null;
+    state.auction = {};
+    state.highestCall = null;
+    state.highestCallerId = null;
+    state.auctionActions = 0;
+    state.callingActions = 0;
+    state.bids = {};
+    state.tricks = {};
+    state.currentTrick = [];
+    state.revealHands = false;
+
+    for (const p of state.players) {
+      p.reset();
+      state.auction[p.id] = null;
+      state.bids[p.id] = null;
+      state.tricks[p.id] = 0;
+    }
+
+    this.deck = new Deck().shuffle(this.rng);
+    for (let i = 0; i < FIRST_DEAL; i++) {
+      for (const p of state.players) p.hand.push(this.deck.draw());
+    }
+
+    state.turnIndex = (state.dealerIndex + 1) % state.players.length;
+    this.log(
+      `--- Round ${state.round}/${state.totalRounds} --- ${FIRST_DEAL} cards dealt. ` +
+        `Auction starts with ${state.players[state.turnIndex].name} (call ${AUCTION_MIN}+).`
+    );
+  }
+
+  legalActions(state = this.state) {
+    const p = state.players[state.turnIndex];
+
+    if (state.phase === 'auction') {
+      const actions = [];
+      const floor = state.highestCall === null ? AUCTION_MIN : state.highestCall + 1;
+      for (let n = floor; n <= AUCTION_MAX; n++) {
+        actions.push({
+          type: 'auction',
+          amount: n,
+          label: state.highestCall === null ? `Call ${n}` : `Raise to ${n}`,
+        });
+      }
+      if (state.highestCall !== null) actions.push({ type: 'pass', label: 'Pass' });
+      return actions;
+    }
+
+    if (state.phase === 'trump' || state.phase === 'trump2') {
+      return SUITS.map((s) => ({ type: 'trump', suit: s, label: `Trump ${SUIT_LABEL[s]}` }));
+    }
+
+    if (state.phase === 'calling') {
+      return Array.from({ length: HAND_SIZE }, (_, i) => ({
+        type: 'declare',
+        amount: i + 1,
+        label: `Call ${i + 1}`,
+      }));
+    }
+
+    if (state.phase === 'playing') {
+      const led = state.currentTrick[0]?.card.suit;
+      const mustFollow = led && p.hand.some((c) => c.suit === led);
+      const playable = mustFollow ? p.hand.filter((c) => c.suit === led) : p.hand;
+      return playable.map((c) => ({ type: 'play', card: c.label, label: `Play ${c.label}` }));
+    }
+
+    return [];
+  }
+
+  applyAction(action, state = this.state) {
+    switch (state.phase) {
+      case 'auction':
+        return this.applyAuction(action, state);
+      case 'trump':
+        return this.applyTrump(action, state);
+      case 'calling':
+        return this.applyDeclare(action, state);
+      case 'trump2':
+        return this.applyTrump2(action, state);
+      case 'playing':
+        return this.applyPlay(action, state);
+      default:
+        throw new Error('Callbreak 13: game is already over');
+    }
+  }
+
+  // ---- auction ---------------------------------------------------------
+  applyAuction(action, state) {
+    const p = state.players[state.turnIndex];
+
+    if (action.type === 'auction') {
+      if (state.highestCall === null && action.amount < AUCTION_MIN) {
+        throw new Error(`First call must be at least ${AUCTION_MIN}`);
+      }
+      if (state.highestCall !== null && action.amount <= state.highestCall) {
+        throw new Error(`Call must beat ${state.highestCall}`);
+      }
+      state.auction[p.id] = action.amount;
+      state.highestCall = action.amount;
+      state.highestCallerId = p.id;
+      this.log(`${p.name} calls ${action.amount}.`);
+    } else if (action.type === 'pass') {
+      state.auction[p.id] = 'pass';
+      this.log(`${p.name} passes.`);
+    } else {
+      throw new Error('Callbreak 13: expected an auction call or pass');
+    }
+
+    state.auctionActions += 1;
+    if (state.auctionActions >= state.players.length) {
+      this.endAuction(state);
+    } else {
+      state.turnIndex = (state.turnIndex + 1) % state.players.length;
+    }
+    return state;
+  }
+
+  endAuction(state) {
+    // Deal the remaining cards (13 each).
+    for (let i = 0; i < HAND_SIZE - FIRST_DEAL; i++) {
+      for (const p of state.players) p.hand.push(this.deck.draw());
+    }
+
+    const winner = state.players.find((p) => p.id === state.highestCallerId);
+    state.startIndex = state.players.findIndex((p) => p.id === winner.id);
+    state.phase = 'trump';
+    state.turnIndex = state.startIndex;
+    this.log(
+      `${winner.name} wins the auction with ${state.highestCall}. ` +
+        `Cards completed to ${HAND_SIZE}. ${winner.name} now picks the trump.`
+    );
+  }
+
+  applyTrump(action, state) {
+    if (action.type !== 'trump' || !SUITS.includes(action.suit)) {
+      throw new Error('Callbreak 13: expected a trump suit');
+    }
+    state.trump = action.suit;
+    state.trumpHolderId = state.players[state.turnIndex].id;
+    state.phase = 'calling';
+    state.turnIndex = (state.dealerIndex + 1) % state.players.length;
+    this.log(`Trump is ${SUIT_LABEL[action.suit]}. Everyone declares their call (min 1).`);
+    return state;
+  }
+
+  // A final call of 10+ overrides the auction winner's trump.
+  applyTrump2(action, state) {
+    if (action.type !== 'trump' || !SUITS.includes(action.suit)) {
+      throw new Error('Callbreak 13: expected a trump suit');
+    }
+    state.trump = action.suit;
+    state.phase = 'playing';
+    state.turnIndex = state.startIndex; // the auction winner still leads
+    this.log(`Trump overridden to ${SUIT_LABEL[action.suit]}. Play begins.`);
+    return state;
+  }
+
+  // ---- trick calls -----------------------------------------------------
+  applyDeclare(action, state) {
+    if (action.type !== 'declare') throw new Error('Callbreak 13: expected a call');
+    const p = state.players[state.turnIndex];
+    state.bids[p.id] = action.amount;
+    this.log(`${p.name} calls ${action.amount}.`);
+
+    state.callingActions += 1;
+    if (state.callingActions >= state.players.length) {
+      this.finishCalling(state);
+    } else {
+      state.turnIndex = (state.turnIndex + 1) % state.players.length;
+    }
+    return state;
+  }
+
+  finishCalling(state) {
+    const maxCall = Math.max(...state.players.map((p) => state.bids[p.id]));
+    if (maxCall >= OVERRIDE_MIN) {
+      // The boldest caller takes the trump choice.
+      const holder = state.players.find((p) => state.bids[p.id] === maxCall);
+      state.trumpHolderId = holder.id;
+      state.phase = 'trump2';
+      state.turnIndex = state.players.findIndex((p) => p.id === holder.id);
+      this.log(
+        `${holder.name} called ${maxCall} (10+) — they may change the trump before play.`
+      );
+    } else {
+      state.phase = 'playing';
+      state.turnIndex = state.startIndex; // auction winner leads
+      this.log('Play begins — follow suit if you can.');
+    }
+  }
+
+  // ---- play ------------------------------------------------------------
+  applyPlay(action, state) {
+    const p = state.players[state.turnIndex];
+    const idx = p.hand.findIndex((c) => c.label === action.card);
+    if (idx === -1) throw new Error(`${p.name} does not hold ${action.card}`);
+
+    const led = state.currentTrick[0]?.card.suit;
+    if (led && p.hand[idx].suit !== led && p.hand.some((c) => c.suit === led)) {
+      throw new Error(`${p.name} must follow suit (${led})`);
+    }
+
+    const [card] = p.hand.splice(idx, 1);
+    state.currentTrick.push({ playerId: p.id, card });
+    this.log(`${p.name} played ${card.label}.`);
+
+    if (state.currentTrick.length === state.players.length) {
+      this.resolveTrick(state);
+    } else {
+      state.turnIndex = (state.turnIndex + 1) % state.players.length;
+    }
+    return state;
+  }
+
+  resolveTrick(state) {
+    const winnerEntry = trickWinner(state.currentTrick, state.trump);
+    const winner = state.players.find((p) => p.id === winnerEntry.playerId);
+    state.tricks[winner.id] += 1;
+    state.totalTricks += 1;
+    this.log(`${winner.name} takes the trick.`);
+    state.currentTrick = [];
+
+    if (state.players.every((p) => p.hand.length === 0)) {
+      this.endRound(state);
+    } else {
+      state.turnIndex = state.players.findIndex((p) => p.id === winner.id);
+    }
+  }
+
+  endRound(state) {
+    const deltas = {};
+    for (const p of state.players) {
+      const bid = state.bids[p.id];
+      const won = state.tricks[p.id];
+      const delta = won >= bid ? bid : -bid; // penalty = the call amount
+      deltas[p.id] = delta;
+      state.scores[p.id] += delta;
+      const sign = delta >= 0 ? '+' : '';
+      this.log(`${p.name}: called ${bid}, won ${won} → ${sign}${delta} (total ${state.scores[p.id]})`);
+    }
+
+    state.history.push({
+      round: state.round,
+      trump: state.trump,
+      dealerIndex: state.dealerIndex,
+      bids: { ...state.bids },
+      tricks: { ...state.tricks },
+      deltas,
+      totals: { ...state.scores },
+    });
+
+    if (state.round >= state.totalRounds) {
+      state.phase = 'done';
+      state.revealHands = true;
+      this.log(`All ${state.totalRounds} rounds complete.`);
+      return;
+    }
+
+    // The lowest scorer deals the next round.
+    const lowest = state.players.reduce((a, b) =>
+      state.scores[b.id] < state.scores[a.id] ? b : a
+    );
+    state.dealerIndex = state.players.findIndex((p) => p.id === lowest.id);
+    this.log(`${lowest.name} has the fewest points and deals the next round.`);
+    state.round += 1;
+    this.startRound(state);
+  }
+
+  result(state = this.state) {
+    const ranking = [...state.players].sort((a, b) => state.scores[b.id] - state.scores[a.id]);
+    return { winner: ranking[0], ranking, scores: state.scores, history: state.history };
+  }
+
+  snapshot(state = this.state, viewerId = null) {
+    const base = super.snapshot(state, viewerId);
+    if (!base) return base;
+    base.trump = state.trump;
+    base.trumpHolderId = state.trumpHolderId;
+    base.round = state.round;
+    base.totalRounds = state.totalRounds;
+    base.auction = state.auction;
+    base.highestCall = state.highestCall;
+    base.highestCallerId = state.highestCallerId;
+    base.bids = state.bids;
+    base.tricks = state.tricks;
+    base.scores = state.scores;
+    base.currentTrick = state.currentTrick.map((e) => ({
+      playerId: e.playerId,
+      card: e.card.label,
+    }));
+    return base;
+  }
+}
+
+return { Callbreak8 };
+})();
+
+__mods["src/games/GameRegistry.js"] = (function () {
+const { HighCard } = __mods["src/games/highcard/HighCard.js"];
+const { TeenPatti } = __mods["src/games/teenpatti/TeenPatti.js"];
+const { Callbreak } = __mods["src/games/callbreak/Callbreak.js"];
+const { Callbreak8 } = __mods["src/games/callbreak8/Callbreak8.js"];
+
+// The one place that knows which games exist. Adding a new game is a
+// two-line change here — nothing else in the engine needs to know.
+
+const registry = new Map();
+
+function registerGame(id, GameClass) {
+  registry.set(id, GameClass);
+}
+
+function getGame(id) {
+  const GameClass = registry.get(id);
+  if (!GameClass) {
+    throw new Error(`Unknown game "${id}". Available: ${listGames().join(', ')}`);
+  }
+  return GameClass;
+}
+
+function listGames() {
+  return [...registry.keys()];
+}
+
+registerGame('highcard', HighCard);
+registerGame('teenpatti', TeenPatti);
+registerGame('callbreak', Callbreak);
+registerGame('callbreak8', Callbreak8);
+
+return { registerGame, getGame, listGames };
+})();
+
+__mods["src/players/BotController.js"] = (function () {
+const { evaluateHand } = __mods["src/games/teenpatti/hand.js"];
+const { wouldWin } = __mods["src/games/callbreak/tricks.js"];
+
+// A bot that plays any game from the engine's legal-actions list. Its
+// "brain" is small but replaceable: swap this file for a smarter one and
+// no game or UI ever notices.
+
+class BotController {
+  constructor({ aggression = 0.5 } = {}) {
+    this.aggression = aggression;
+  }
+
+  async decide({ player, actions, engine }) {
+    if (actions.some((a) => a.type === 'pack')) {
+      return this.teenPatti(player, actions);
+    }
+    if (actions.some((a) => a.type === 'bid')) {
+      return this.callbreakBid(player, actions);
+    }
+    if (actions.some((a) => a.type === 'auction' || a.type === 'pass')) {
+      return this.callbreak8Auction(player, actions);
+    }
+    if (actions.some((a) => a.type === 'trump')) {
+      return this.callbreak8Trump(player, actions);
+    }
+    if (actions.some((a) => a.type === 'declare')) {
+      return this.callbreak8Declare(player, actions, engine);
+    }
+    if (actions.some((a) => a.type === 'play')) {
+      return this.callbreakPlay(player, actions, engine);
+    }
+    // Generic fallback (e.g. High Card).
+    const byType = Object.fromEntries(actions.map((a) => [a.type, a]));
+    if (byType.call) return byType.call;
+    if (byType.show) return byType.show;
+    return actions[0];
+  }
+
+  // ---- Teen Patti ------------------------------------------------------
+  teenPatti(player, actions) {
+    const byType = Object.fromEntries(actions.map((a) => [a.type, a]));
+    const { cat } = evaluateHand(player.hand); // 1 high card .. 6 trail
+    if (cat >= 4 && byType.raise) return byType.raise;
+    if (cat === 3 && byType.call) return byType.call;
+    if (cat === 2 && byType.call && Math.random() < 0.7) return byType.call;
+    if (cat === 1 && byType.pack && Math.random() < 0.8) return byType.pack;
+    if (byType.call && Math.random() < this.aggression + 0.2) return byType.call;
+    if (byType.pack) return byType.pack;
+    return actions[0];
+  }
+
+  // ---- Callbreak 8: auction (5 cards) ---------------------------------
+  callbreak8Auction(player, actions) {
+    const raises = actions.filter((a) => a.type === 'auction');
+    const pass = actions.find((a) => a.type === 'pass');
+
+    let s = 0;
+    for (const c of player.hand) {
+      if (c.rank === 14) s += 2;
+      else if (c.rank === 13) s += 1.5;
+      else if (c.rank === 12) s += 1;
+      if (c.suit === 'S' && c.rank >= 11) s += 1;
+    }
+
+    if (!pass) {
+      // First caller: must open the bidding.
+      const amt = s >= 4 ? 7 : s >= 2.5 ? 6 : 5;
+      return raises.find((a) => a.amount === amt) || raises[0];
+    }
+
+    const next = raises[0]; // lowest available raise
+    if (next && s >= 3 && Math.random() < 0.6) return next;
+    return pass || raises[0];
+  }
+
+  // ---- Callbreak 8: pick the trump suit -------------------------------
+  callbreak8Trump(player, actions) {
+    const counts = {};
+    for (const c of player.hand) counts[c.suit] = (counts[c.suit] || 0) + 1;
+    let best = actions[0];
+    let bestCount = -1;
+    for (const a of actions) {
+      const n = counts[a.suit] || 0;
+      if (n > bestCount) {
+        bestCount = n;
+        best = a;
+      }
+    }
+    return best;
+  }
+
+  // ---- Callbreak 8: declare your tricks -------------------------------
+  callbreak8Declare(player, actions, engine) {
+    const trump = engine?.state?.trump ?? 'S';
+    let strength = 0;
+    for (const c of player.hand) {
+      if (c.rank === 14) strength += 1;
+      else if (c.rank === 13) strength += 0.75;
+      else if (c.rank === 12) strength += 0.35;
+      if (c.suit === trump && c.rank >= 11) strength += 0.6;
+    }
+    let call = Math.round(strength + 0.5);
+    call = Math.max(1, Math.min(13, call));
+    return actions.find((a) => a.amount === call) || actions[0];
+  }
+
+  // ---- Callbreak: bidding ---------------------------------------------
+  // Rough trick estimate from high cards + trump (spade) honours.
+  callbreakBid(player, actions) {
+    let strength = 0;
+    for (const c of player.hand) {
+      if (c.rank === 14) strength += 1.0; // Ace
+      else if (c.rank === 13) strength += 0.75; // King
+      else if (c.rank === 12) strength += 0.35; // Queen
+      if (c.suit === 'S' && c.rank >= 11) strength += 0.6; // trump honour
+    }
+    // A 13-card hand wins ~3.25 tricks on average, so aim near that.
+    let bid = Math.round(strength + 0.5);
+    bid = Math.max(1, Math.min(13, bid));
+    return actions.find((a) => a.amount === bid) || actions[0];
+  }
+
+  // ---- Callbreak: playing a card --------------------------------------
+  callbreakPlay(player, actions, engine) {
+    const state = engine?.state;
+    const trick = state?.currentTrick ?? [];
+    const trump = state?.trump ?? 'S';
+    const led = trick[0]?.card.suit;
+
+    const options = actions
+      .map((a) => ({ action: a, card: player.hand.find((c) => c.label === a.card) }))
+      .filter((x) => x.card);
+
+    const lowFirst = (a, b) => a.card.rank - b.card.rank;
+
+    // Last to play: win as cheaply as possible, else dump the lowest card.
+    if (trick.length === 3) {
+      const winners = options.filter((o) => wouldWin(o.card, trick, trump)).sort(lowFirst);
+      if (winners.length) return winners[0].action;
+      return [...options].sort(lowFirst)[0].action;
+    }
+
+    // Otherwise play low, keeping trumps for later.
+    const follow = options.filter((o) => o.card.suit === led);
+    const pool = follow.length ? follow : options;
+    pool.sort((a, b) => (a.card.suit === trump) - (b.card.suit === trump) || lowFirst(a, b));
+    return pool[0].action;
+  }
+}
+
+return { BotController };
+})();
+
+__mods["src/ui/web/app.js"] = (function () {
+const { Player } = __mods["src/core/Player.js"];
+const { getGame } = __mods["src/games/GameRegistry.js"];
+const { BotController } = __mods["src/players/BotController.js"];
+
+// ---- browser front-end --------------------------------------------------
+// Two modes:
+//   solo   : one human + three bots, engine runs in the browser.
+//   online : up to 4 people on their own devices; the server owns the
+//            engine and this page just renders state and posts actions.
+
+const bot = new BotController();
+const app = document.getElementById('app');
+const RED = new Set(['H', 'D']);
+// Online mode needs the server. When the page is opened as a saved file
+// (file://) there is no server, so we hide "Play with Friends".
+const CAN_GO_ONLINE = !!(typeof window !== "undefined" && window.MCG_SERVER); // Android: online only when a server URL is set
+// The multiplayer API lives at API_BASE. Empty means "same origin" (the
+// Node/Pages server). In the Android app a full server URL is injected.
+const API_BASE = (typeof window !== 'undefined' && window.MCG_SERVER) || '';
+
+let mode = null; // 'solo' | 'online'
+let engine = null; // solo engine
+let online = null; // { code, playerId, hostId, seats }
+let view = null; // what we render
+let myId = null;
+let pollTimer = null;
+
+// ---------- tiny DOM helpers ----------
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  return e;
+}
+
+function cardEl(label) {
+  const div = el('div', 'card');
+  if (label === '??') {
+    div.classList.add('back');
+  } else {
+    if (RED.has(label.slice(-1))) div.classList.add('red');
+    div.textContent = label;
+  }
+  return div;
+}
+
+async function post(path, body) {
+  const res = await fetch(API_BASE + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+// ---------- HOME ----------
+function renderHome() {
+  stopPoll();
+  mode = null;
+  engine = null;
+  online = null;
+  view = null;
+  app.innerHTML = '';
+
+  const wrap = el('div', 'home');
+  wrap.appendChild(el('p', null, 'Choose a game and how you want to play.'));
+
+  const gsel = el('select');
+  gsel.innerHTML =
+    '<option value="callbreak8">Callbreak 13</option>' +
+    '<option value="callbreak">Callbreak</option>' +
+    '<option value="teenpatti">Teen Patti</option>' +
+    '<option value="highcard">High Card</option>';
+  gsel.value = 'callbreak8';
+  const row = el('div', 'controls');
+  row.appendChild(el('label', null, 'Game:'));
+  row.appendChild(gsel);
+  wrap.appendChild(row);
+
+  const b1 = el('button', null, 'Play vs Bots');
+  b1.onclick = () => startSolo(gsel.value);
+  const row2 = el('div', 'controls');
+  row2.appendChild(b1);
+  if (CAN_GO_ONLINE) {
+    const b2 = el('button', null, 'Play with Friends');
+    b2.onclick = () => renderOnlineMenu();
+    row2.appendChild(b2);
+  }
+  wrap.appendChild(row2);
+  if (CAN_GO_ONLINE) {
+    wrap.appendChild(el('p', 'hint', 'Play with Friends: create a room and share the 4-letter code. Others open the same address on their phone/laptop. Max 4 players.'));
+    const dl = el('a', 'dl-link', 'Download offline app');
+    dl.href = 'offline/master-card-game.html';
+    dl.setAttribute('download', 'master-card-game.html');
+    wrap.appendChild(dl);
+    wrap.appendChild(el('p', 'hint', 'Offline app: ek hi HTML file. Download karo, phone/PC par rakho, tap karo — bina internet ke bots ke saath khelo.'));
+  } else {
+    wrap.appendChild(el('p', 'hint', 'Offline mode — bots ke saath khel rahe ho. Multiplayer ke liye server chala kar browser se kholo.'));
+  }
+
+  app.appendChild(wrap);
+}
+
+// ---------- SOLO ----------
+function startSolo(gameId) {
+  mode = 'solo';
+  const GameClass = getGame(gameId);
+  const players = [
+    new Player({ id: 'p1', name: 'You', isHuman: true }),
+    new Player({ id: 'p2', name: 'Asha', isBot: true }),
+    new Player({ id: 'p3', name: 'Bheem', isBot: true }),
+    new Player({ id: 'p4', name: 'Chitra', isBot: true }),
+  ];
+  myId = 'p1';
+  engine = new GameClass({ players, seed: Math.floor(Math.random() * 1e9) });
+  engine.start();
+  step();
+}
+
+function step() {
+  if (!engine) return;
+  view = engine.snapshot(engine.state, myId);
+  renderTable();
+  if (engine.isOver()) return;
+
+  if (!engine.currentPlayer.isHuman) {
+    setTimeout(async () => {
+      if (!engine || engine.isOver() || engine.currentPlayer.isHuman) return;
+      const action = await bot.decide({
+        player: engine.currentPlayer,
+        actions: engine.legalActions(),
+        engine,
+      });
+      engine.applyAction(action);
+      step();
+    }, 650);
+  }
+}
+
+// ---------- ONLINE ----------
+function renderOnlineMenu() {
+  stopPoll();
+  app.innerHTML = '';
+  const wrap = el('div', 'home');
+  wrap.appendChild(el('h2', null, 'Play with Friends'));
+
+  const nameInput = el('input');
+  nameInput.placeholder = 'Your name';
+  nameInput.value = 'Player';
+  wrap.appendChild(nameInput);
+
+  const bCreate = el('button', null, 'Create room');
+  bCreate.onclick = async () => {
+    const r = await post('/api/create', { name: nameInput.value });
+    if (r.error) return alert(r.error);
+    online = { code: r.code, playerId: r.playerId, seats: [], hostId: r.playerId };
+    myId = r.playerId;
+    mode = 'online';
+    renderLobby();
+  };
+  const row1 = el('div', 'controls');
+  row1.appendChild(bCreate);
+  wrap.appendChild(row1);
+
+  const codeInput = el('input');
+  codeInput.placeholder = 'Room code';
+  codeInput.style.textTransform = 'uppercase';
+  const bJoin = el('button', null, 'Join room');
+  bJoin.onclick = async () => {
+    const r = await post('/api/join', {
+      code: codeInput.value.trim().toUpperCase(),
+      name: nameInput.value,
+    });
+    if (r.error) return alert(r.error);
+    online = { code: r.code, playerId: r.playerId, seats: [], hostId: null };
+    myId = r.playerId;
+    mode = 'online';
+    renderLobby();
+  };
+  const row2 = el('div', 'controls');
+  row2.appendChild(codeInput);
+  row2.appendChild(bJoin);
+  wrap.appendChild(row2);
+
+  const back = el('button', 'secondary', 'Back');
+  back.onclick = renderHome;
+  wrap.appendChild(back);
+  app.appendChild(wrap);
+}
+
+function renderLobby() {
+  app.innerHTML = '';
+  const wrap = el('div', 'home');
+  wrap.appendChild(el('h2', null, 'Room ' + online.code));
+  wrap.appendChild(el('p', null, 'Share this code. Others open the same address and join with it.'));
+
+  const list = el('div', 'lobby-list');
+  list.id = 'lobbyList';
+  wrap.appendChild(list);
+
+  const startBtn = el('button', null, 'Start game');
+  startBtn.id = 'startBtn';
+  startBtn.onclick = async () => {
+    await post('/api/start', { code: online.code, player: online.playerId });
+    poll();
+  };
+  wrap.appendChild(startBtn);
+
+  const leave = el('button', 'secondary', 'Leave');
+  leave.onclick = renderHome;
+  wrap.appendChild(leave);
+  app.appendChild(wrap);
+
+  poll();
+}
+
+async function poll() {
+  if (!online) return;
+  let r;
+  try {
+    r = await fetch(`${API_BASE}/api/state?code=${online.code}&player=${online.playerId}`).then((x) => x.json());
+  } catch {
+    r = { error: 'network' };
+  }
+  if (r.error) {
+    stopPoll();
+    return;
+  }
+  online.seats = r.seats;
+  online.hostId = r.hostId;
+  online.started = r.started;
+
+  if (r.started) {
+    view = r.view;
+    renderTable();
+  } else {
+    updateLobby();
+  }
+  schedulePoll();
+}
+
+function schedulePoll() {
+  stopPoll();
+  pollTimer = setTimeout(poll, 900);
+}
+
+function stopPoll() {
+  if (pollTimer) {
+    clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function updateLobby() {
+  const list = document.getElementById('lobbyList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const s = online.seats[i];
+    const label = s
+      ? `${s.name}${s.id === online.hostId ? ' (host)' : ''}${s.isBot ? ' [bot]' : ''}`
+      : '— empty —';
+    list.appendChild(el('div', 'lobby-seat', label));
+  }
+  const btn = document.getElementById('startBtn');
+  if (btn) btn.style.display = online.playerId === online.hostId ? '' : 'none';
+}
+
+// ---------- TABLE ----------
+function renderTable() {
+  const v = view;
+  app.innerHTML = '';
+  if (!v) return;
+
+  // top bar: game / round / trump / phase
+  const info = el('div', 'pot');
+  let line = v.game;
+  if (v.round) line += ` &nbsp;·&nbsp; Round <b>${v.round}/${v.totalRounds}</b>`;
+  else line += ` &nbsp;·&nbsp; Pot <b>${v.pot}</b>`;
+  if (v.trump) line += ` &nbsp;·&nbsp; Trump <b>${v.trump}</b>`;
+  if (v.phase === 'auction') line += ` &nbsp;·&nbsp; Auction (highest <b>${v.highestCall ?? '—'}</b>)`;
+  if (v.phase === 'trump') line += ` &nbsp;·&nbsp; <b>Choose trump</b>`;
+  if (v.phase === 'trump2') line += ` &nbsp;·&nbsp; <b>Choose trump (10+ override)</b>`;
+  if (v.phase === 'calling') line += ` &nbsp;·&nbsp; Declaring calls`;
+  info.innerHTML = line;
+  app.appendChild(info);
+
+  // control row
+  const ctrl = el('div', 'controls');
+  if (mode === 'solo') {
+    const ng = el('button', 'secondary', 'New game');
+    ng.onclick = renderHome;
+    ctrl.appendChild(ng);
+  } else if (mode === 'online') {
+    const lv = el('button', 'secondary', 'Leave');
+    lv.onclick = () => {
+      stopPoll();
+      renderHome();
+    };
+    ctrl.appendChild(lv);
+    if (v.over && online && online.playerId === online.hostId) {
+      const ag = el('button', null, 'Play again');
+      ag.onclick = async () => {
+        await post('/api/restart', { code: online.code, player: online.playerId });
+        poll();
+      };
+      ctrl.appendChild(ag);
+    }
+  }
+  if (ctrl.children.length) app.appendChild(ctrl);
+
+  // trick on the table
+  if (v.currentTrick && v.currentTrick.length) {
+    const onTable = el('div', 'trick');
+    for (const e of v.currentTrick) {
+      const slot = el('div', 'trick-slot');
+      slot.appendChild(cardEl(e.card));
+      const who = v.players.find((p) => p.id === e.playerId);
+      slot.appendChild(el('span', 'trick-cap', who ? who.name : ''));
+      onTable.appendChild(slot);
+    }
+    app.appendChild(onTable);
+  }
+
+  // seats
+  const seats = el('div', 'seats');
+  for (const p of v.players) {
+    const seat = el('div', 'seat');
+    if (p.id === v.currentPlayerId) seat.classList.add('turn');
+    if (p.folded) seat.classList.add('folded');
+
+    let extra = '';
+    if (v.auction && v.auction[p.id] != null) {
+      const a = v.auction[p.id];
+      extra += ` · ${a === 'pass' ? 'pass' : 'bid ' + a}`;
+    }
+    if (v.bids && v.bids[p.id] != null) {
+      extra += ` · call ${v.bids[p.id]} · won ${v.tricks[p.id]}`;
+      if (v.scores) {
+        const s = v.scores[p.id];
+        extra += ` · pts ${s >= 0 ? '+' : ''}${s}`;
+      }
+    }
+    const youTag = p.id === myId ? ' (you)' : '';
+    seat.appendChild(el('div', 'name', `<span>${p.name}${youTag}${extra}</span>`));
+
+    const cards = el('div', 'cards');
+    for (const label of p.cards) cards.appendChild(cardEl(label));
+    seat.appendChild(cards);
+    seats.appendChild(seat);
+  }
+  app.appendChild(seats);
+
+  // log
+  const log = el('div', 'log');
+  log.id = 'log';
+  log.innerHTML = v.log.map((l) => `&middot; ${l}`).join('<br>');
+  app.appendChild(log);
+
+  // actions
+  const actions = el('div', 'actions');
+  actions.id = 'actions';
+  if (v.over) {
+    actions.appendChild(el('div', 'banner', `${v.winnerName || 'Nobody'} wins!`));
+  } else if (v.currentPlayerId === myId) {
+    for (const action of v.legalActions) {
+      const b = el('button', action.type === 'see' || action.type === 'pass' ? 'secondary' : null, action.label);
+      b.onclick = () => doAction(action);
+      actions.appendChild(b);
+    }
+  } else {
+    const who = v.players.find((p) => p.id === v.currentPlayerId);
+    actions.appendChild(el('div', 'hint', `Waiting for ${who ? who.name : '...'}`));
+  }
+  app.appendChild(actions);
+}
+
+function doAction(action) {
+  if (mode === 'solo') {
+    engine.applyAction(action);
+    step();
+  } else if (mode === 'online') {
+    post('/api/action', { code: online.code, player: online.playerId, action }).then((r) => {
+      if (r.error) alert(r.error);
+      poll();
+    });
+  }
+}
+
+renderHome();
+
+return {  };
+})();
+})();
+</script>
+</body>
+</html>

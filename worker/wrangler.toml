@@ -1,0 +1,17 @@
+name = "master-card-game"
+main = "worker/src/index.js"
+compatibility_date = "2025-09-01"
+
+# Serve the web app (www/) as static assets.
+[assets]
+directory = "./www"
+binding = "ASSETS"
+
+# One Durable Object per room.
+[[durable_objects.bindings]]
+name = "GAME_ROOM"
+class_name = "GameRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameRoom"]
