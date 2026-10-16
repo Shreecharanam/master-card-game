@@ -42,9 +42,50 @@ function cardEl(label) {
   }
   const rank = label.slice(0, -1);
   const suit = label.slice(-1);
+  const sym = SUIT_SYM[suit] || suit;
   if (RED.has(suit)) div.classList.add('red');
-  div.innerHTML = `<span class="rk">${rank}</span><span class="st">${SUIT_SYM[suit] || suit}</span>`;
+  div.innerHTML =
+    `<span class="corner"><span class="rk">${rank}</span><span class="st">${sym}</span></span>` +
+    `<span class="big">${sym}</span>`;
   return div;
+}
+
+function initials(name) {
+  return (name || '?').trim().slice(0, 1).toUpperCase();
+}
+function avatarColor(name) {
+  let h = 0;
+  for (const ch of String(name || '?')) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h}, 55%, 42%)`;
+}
+function metaFor(v, p) {
+  const bits = [];
+  if (v.auction && v.auction[p.id] != null) {
+    bits.push(v.auction[p.id] === 'pass' ? 'pass' : 'bid ' + v.auction[p.id]);
+  }
+  if (v.bids && v.bids[p.id] != null) {
+    bits.push(`call ${v.bids[p.id]}`);
+    bits.push(`won ${v.tricks[p.id]}`);
+    if (v.scores) bits.push(`pts ${v.scores[p.id] >= 0 ? '+' : ''}${v.scores[p.id]}`);
+  }
+  return bits.join(' · ');
+}
+function oppSeat(v, p, pos) {
+  const seat = el('div', `pseat ${pos}`);
+  if (p.id === v.currentPlayerId) seat.classList.add('turn');
+  if (p.folded) seat.classList.add('folded');
+  const av = el('div', 'avatar', initials(p.name));
+  av.style.background = avatarColor(p.name);
+  seat.appendChild(av);
+  seat.appendChild(el('div', 'pname', p.name));
+  const m = metaFor(v, p);
+  if (m) seat.appendChild(el('div', 'pmeta', m));
+  const backs = el('div', 'backs');
+  const n = Math.min(p.cards.length, 8);
+  for (let i = 0; i < n; i++) backs.appendChild(el('div', 'mini-back'));
+  if (p.cards.length > 8) backs.appendChild(el('span', 'backs-n', `+${p.cards.length - 8}`));
+  seat.appendChild(backs);
+  return seat;
 }
 
 async function post(path, body) {
@@ -309,21 +350,18 @@ function renderTable() {
   app.innerHTML = '';
   if (!v) return;
 
-  // top bar: game / round / trump / phase
-  const info = el('div', 'pot');
-  let line = v.game;
-  if (v.round) line += ` &nbsp;·&nbsp; Round <b>${v.round}/${v.totalRounds}</b>`;
-  else line += ` &nbsp;·&nbsp; Pot <b>${v.pot}</b>`;
+  // HUD: game / round / trump card / phase
+  const info = el('div', 'hud');
+  let line = `<span class="hud-round">${v.game} · Round <b>${v.round || 1}/${v.totalRounds || 1}</b></span>`;
   if (v.trump) {
     const sym = SUIT_SYM[v.trump] || v.trump;
     const red = RED.has(v.trump) ? ' red' : '';
     const rk = v.trumpCard ? v.trumpCard.slice(0, -1) : '';
-    line += ` &nbsp;·&nbsp; Trump <span class="tcard${red}">${rk}${sym}</span>`;
+    line += `<span class="hud-trump">Trump <span class="tcard${red}">${rk}${sym}</span></span>`;
   }
-  if (v.phase === 'auction') line += ` &nbsp;·&nbsp; Auction (highest <b>${v.highestCall ?? '—'}</b>)`;
-  if (v.phase === 'trump') line += ` &nbsp;·&nbsp; <b>Choose trump</b>`;
-  if (v.phase === 'trump2') line += ` &nbsp;·&nbsp; <b>Choose trump (10+ override)</b>`;
-  if (v.phase === 'calling') line += ` &nbsp;·&nbsp; Declaring calls`;
+  if (v.phase === 'auction') line += `<span class="hud-phase">Auction · highest <b>${v.highestCall ?? '—'}</b></span>`;
+  if (v.phase === 'trump' || v.phase === 'trump2') line += `<span class="hud-phase">Choose trump</span>`;
+  if (v.phase === 'calling') line += `<span class="hud-phase">Declaring calls</span>`;
   info.innerHTML = line;
   app.appendChild(info);
 
@@ -351,51 +389,53 @@ function renderTable() {
   }
   if (ctrl.children.length) app.appendChild(ctrl);
 
-  // trick on the table
+  const me = v.players.find((p) => p.id === myId);
+  const others = v.players.filter((p) => p.id !== myId);
+
+  // ---- the table: 3 opponents around it, played cards in the middle ----
+  const table = el('div', 'table');
+  const pos = ['left', 'top', 'right'];
+  others.forEach((p, i) => table.appendChild(oppSeat(v, p, pos[i] || 'top')));
+
+  const center = el('div', 'center');
   if (v.currentTrick && v.currentTrick.length) {
-    const onTable = el('div', 'trick');
     for (const e of v.currentTrick) {
-      const slot = el('div', 'trick-slot');
-      slot.appendChild(cardEl(e.card));
-      const who = v.players.find((p) => p.id === e.playerId);
-      slot.appendChild(el('span', 'trick-cap', who ? who.name : ''));
-      onTable.appendChild(slot);
+      const wrap = el('div', 'trick-card');
+      wrap.appendChild(cardEl(e.card));
+      const who = v.players.find((x) => x.id === e.playerId);
+      wrap.appendChild(el('span', 'trick-cap', who ? who.name : ''));
+      center.appendChild(wrap);
     }
-    app.appendChild(onTable);
+  } else {
+    center.appendChild(
+      el('div', 'center-hint', v.over ? '' : v.currentPlayerId === myId ? 'Your turn' : 'Waiting…')
+    );
   }
+  table.appendChild(center);
+  app.appendChild(table);
 
-  // one seat element
-  function seatEl(p) {
-    const seat = el('div', 'seat');
-    if (p.id === v.currentPlayerId) seat.classList.add('turn');
-    if (p.folded) seat.classList.add('folded');
-    if (p.id === myId) seat.classList.add('mine');
+  // ---- your hand (fanned) ----
+  if (me) {
+    const mineWrap = el('div', 'myhand-wrap');
+    const title = el('div', 'myhand-title');
+    const mm = metaFor(v, me);
+    title.innerHTML = `<span>You</span><span class="meta">${mm}</span>`;
+    mineWrap.appendChild(title);
 
-    let extra = '';
-    if (v.auction && v.auction[p.id] != null) {
-      const a = v.auction[p.id];
-      extra += ` · ${a === 'pass' ? 'pass' : 'bid ' + a}`;
-    }
-    if (v.bids && v.bids[p.id] != null) {
-      extra += ` · call ${v.bids[p.id]} · won ${v.tricks[p.id]}`;
-      if (v.scores) {
-        const s = v.scores[p.id];
-        extra += ` · pts ${s >= 0 ? '+' : ''}${s}`;
-      }
-    }
-    const youTag = p.id === myId ? ' (you)' : '';
-    seat.appendChild(el('div', 'name', `<span>${p.name}${youTag}</span>`));
-    if (extra) seat.appendChild(el('div', 'meta', extra.replace(/^ · /, '')));
-
-    // During play, the cards themselves are the buttons.
     const legalPlays = new Set(
       (v.legalActions || []).filter((a) => a.type === 'play').map((a) => a.card)
     );
-    const canPlay = p.id === myId && v.currentPlayerId === myId && legalPlays.size > 0;
+    const canPlay = v.currentPlayerId === myId && legalPlays.size > 0;
 
-    const cards = el('div', 'cards');
-    for (const label of p.cards) {
+    const hand = el('div', 'hand');
+    const n = me.cards.length;
+    const mid = (n - 1) / 2;
+    me.cards.forEach((label, i) => {
       const ce = cardEl(label);
+      ce.classList.add('hand-card');
+      const rot = (i - mid) * 2.4;
+      const lift = Math.abs(i - mid) * 1.6;
+      ce.style.transform = `rotate(${rot}deg) translateY(${lift}px)`;
       if (canPlay) {
         if (legalPlays.has(label)) {
           ce.classList.add('playable');
@@ -404,23 +444,13 @@ function renderTable() {
           ce.classList.add('dim');
         }
       }
-      cards.appendChild(ce);
-    }
-    seat.appendChild(cards);
-    return seat;
-  }
-
-  const me = v.players.find((p) => p.id === myId);
-  const others = v.players.filter((p) => p.id !== myId);
-
-  // 1) YOUR hand first — cards visible, then the buttons right below it
-  if (me) {
-    const mineWrap = el('div', 'seats');
-    mineWrap.appendChild(seatEl(me));
+      hand.appendChild(ce);
+    });
+    mineWrap.appendChild(hand);
     app.appendChild(mineWrap);
   }
 
-  // 2) action buttons (or winner / waiting text)
+  // ---- actions ----
   const actions = el('div', 'actions');
   actions.id = 'actions';
   if (v.over) {
@@ -441,17 +471,10 @@ function renderTable() {
   }
   app.appendChild(actions);
 
-  // 3) other players
-  if (others.length) {
-    const seats = el('div', 'seats');
-    for (const p of others) seats.appendChild(seatEl(p));
-    app.appendChild(seats);
-  }
-
-  // 4) log
+  // ---- log ----
   const log = el('div', 'log');
   log.id = 'log';
-  log.innerHTML = v.log.map((l) => `&middot; ${l}`).join('<br>');
+  log.innerHTML = v.log.slice(-4).map((l) => `&middot; ${l}`).join('<br>');
   app.appendChild(log);
 }
 
