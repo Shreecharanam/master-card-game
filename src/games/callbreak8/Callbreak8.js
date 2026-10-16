@@ -110,7 +110,7 @@ export class Callbreak8 extends GameEngine {
           label: state.highestCall === null ? `Call ${n}` : `Raise to ${n}`,
         });
       }
-      if (state.highestCall !== null) actions.push({ type: 'pass', label: 'Pass' });
+      actions.push({ type: 'pass', label: 'Pass' }); // anyone may pass, even the first
       return actions;
     }
 
@@ -185,19 +185,34 @@ export class Callbreak8 extends GameEngine {
   }
 
   endAuction(state) {
-    // Deal the remaining cards (13 each).
+    const n = state.players.length;
+    if (state.highestCallerId) {
+      // Trump is chosen with only the first 5 cards visible.
+      const winner = state.players.find((p) => p.id === state.highestCallerId);
+      state.startIndex = state.players.findIndex((p) => p.id === winner.id);
+      state.phase = 'trump';
+      state.turnIndex = state.startIndex;
+      this.log(
+        `${winner.name} wins the auction with ${state.highestCall}. ` +
+          `${winner.name} picks the trump (with 5 cards).`
+      );
+    } else {
+      // Everyone passed -> the trump stays hukum (Spades).
+      state.trump = 'S';
+      state.startIndex = (state.dealerIndex + 1) % n;
+      state.turnIndex = state.startIndex;
+      state.trumpCard = this.pickTrumpCard(state, state.startIndex, 'S');
+      this.dealRest(state);
+      state.phase = 'calling';
+      this.log('Everyone passed — trump stays hukum (Spades). Cards completed to 13.');
+    }
+  }
+
+  // Deal the remaining cards so each player has a full hand (13).
+  dealRest(state) {
     for (let i = 0; i < HAND_SIZE - FIRST_DEAL; i++) {
       for (const p of state.players) p.hand.push(this.deck.draw());
     }
-
-    const winner = state.players.find((p) => p.id === state.highestCallerId);
-    state.startIndex = state.players.findIndex((p) => p.id === winner.id);
-    state.phase = 'trump';
-    state.turnIndex = state.startIndex;
-    this.log(
-      `${winner.name} wins the auction with ${state.highestCall}. ` +
-        `Cards completed to ${HAND_SIZE}. ${winner.name} now picks the trump.`
-    );
   }
 
   applyTrump(action, state) {
@@ -207,9 +222,13 @@ export class Callbreak8 extends GameEngine {
     state.trump = action.suit;
     state.trumpHolderId = state.players[state.turnIndex].id;
     state.trumpCard = this.pickTrumpCard(state, state.turnIndex, action.suit);
+    this.dealRest(state); // now the remaining 8 cards are dealt (13 each)
     state.phase = 'calling';
     state.turnIndex = (state.dealerIndex + 1) % state.players.length;
-    this.log(`Trump is ${SUIT_LABEL[action.suit]}. Everyone declares their call (min 1).`);
+    this.log(
+      `Trump is ${SUIT_LABEL[action.suit]}. Cards completed to ${HAND_SIZE}. ` +
+        `Everyone declares their call (min 1).`
+    );
     return state;
   }
 

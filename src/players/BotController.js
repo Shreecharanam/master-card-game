@@ -18,7 +18,7 @@ export class BotController {
       return this.callbreakBid(player, actions);
     }
     if (actions.some((a) => a.type === 'auction' || a.type === 'pass')) {
-      return this.callbreak8Auction(player, actions);
+      return this.callbreak8Auction(player, actions, engine);
     }
     if (actions.some((a) => a.type === 'trump')) {
       return this.callbreak8Trump(player, actions);
@@ -50,7 +50,7 @@ export class BotController {
   }
 
   // ---- Callbreak 8: auction (5 cards) ---------------------------------
-  callbreak8Auction(player, actions) {
+  callbreak8Auction(player, actions, engine) {
     const raises = actions.filter((a) => a.type === 'auction');
     const pass = actions.find((a) => a.type === 'pass');
 
@@ -62,8 +62,9 @@ export class BotController {
       if (c.suit === 'S' && c.rank >= 11) s += 1;
     }
 
-    if (!pass) {
-      // First caller: must open the bidding.
+    // First to speak (nobody has bid yet): open the bidding, don't pass.
+    const first = engine ? engine.state.highestCall === null : !pass;
+    if (first) {
       const amt = s >= 4 ? 7 : s >= 2.5 ? 6 : 5;
       return raises.find((a) => a.amount === amt) || raises[0];
     }
