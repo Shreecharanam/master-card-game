@@ -230,3 +230,11 @@ a.dl-link {
   line-height: 1.7;
   min-height: 60px;
 }
+
+/* Your own hand: highlighted, and the action buttons sit right below it */
+.seat.mine { border-color: var(--sky); }
+.seat.mine .name span:first-child { color: var(--sky); }
+.card { flex-direction: column; gap: 1px; padding: 4px; }
+.card .rk { font-size: 1.02rem; line-height: 1; }
+.card .st { font-size: 1.15rem; line-height: 1; }
+.seats + #actions { margin-top: 14px; }

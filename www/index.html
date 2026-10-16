@@ -238,6 +238,14 @@ a.dl-link {
   min-height: 60px;
 }
 
+/* Your own hand: highlighted, and the action buttons sit right below it */
+.seat.mine { border-color: var(--sky); }
+.seat.mine .name span:first-child { color: var(--sky); }
+.card { flex-direction: column; gap: 1px; padding: 4px; }
+.card .rk { font-size: 1.02rem; line-height: 1; }
+.card .st { font-size: 1.15rem; line-height: 1; }
+.seats + #actions { margin-top: 14px; }
+
 </style>
 </head>
 <body>
@@ -1630,14 +1638,17 @@ function el(tag, cls, html) {
   return e;
 }
 
+const SUIT_SYM = { S: '\u2660', H: '\u2665', D: '\u2666', C: '\u2663' };
 function cardEl(label) {
   const div = el('div', 'card');
   if (label === '??') {
     div.classList.add('back');
-  } else {
-    if (RED.has(label.slice(-1))) div.classList.add('red');
-    div.textContent = label;
+    return div;
   }
+  const rank = label.slice(0, -1);
+  const suit = label.slice(-1);
+  if (RED.has(suit)) div.classList.add('red');
+  div.innerHTML = `<span class="rk">${rank}</span><span class="st">${SUIT_SYM[suit] || suit}</span>`;
   return div;
 }
 
@@ -1919,12 +1930,12 @@ function renderTable() {
     app.appendChild(onTable);
   }
 
-  // seats
-  const seats = el('div', 'seats');
-  for (const p of v.players) {
+  // one seat element
+  function seatEl(p) {
     const seat = el('div', 'seat');
     if (p.id === v.currentPlayerId) seat.classList.add('turn');
     if (p.folded) seat.classList.add('folded');
+    if (p.id === myId) seat.classList.add('mine');
 
     let extra = '';
     if (v.auction && v.auction[p.id] != null) {
@@ -1945,17 +1956,20 @@ function renderTable() {
     const cards = el('div', 'cards');
     for (const label of p.cards) cards.appendChild(cardEl(label));
     seat.appendChild(cards);
-    seats.appendChild(seat);
+    return seat;
   }
-  app.appendChild(seats);
 
-  // log
-  const log = el('div', 'log');
-  log.id = 'log';
-  log.innerHTML = v.log.map((l) => `&middot; ${l}`).join('<br>');
-  app.appendChild(log);
+  const me = v.players.find((p) => p.id === myId);
+  const others = v.players.filter((p) => p.id !== myId);
 
-  // actions
+  // 1) YOUR hand first — cards visible, then the buttons right below it
+  if (me) {
+    const mineWrap = el('div', 'seats');
+    mineWrap.appendChild(seatEl(me));
+    app.appendChild(mineWrap);
+  }
+
+  // 2) action buttons (or winner / waiting text)
   const actions = el('div', 'actions');
   actions.id = 'actions';
   if (v.over) {
@@ -1971,6 +1985,19 @@ function renderTable() {
     actions.appendChild(el('div', 'hint', `Waiting for ${who ? who.name : '...'}`));
   }
   app.appendChild(actions);
+
+  // 3) other players
+  if (others.length) {
+    const seats = el('div', 'seats');
+    for (const p of others) seats.appendChild(seatEl(p));
+    app.appendChild(seats);
+  }
+
+  // 4) log
+  const log = el('div', 'log');
+  log.id = 'log';
+  log.innerHTML = v.log.map((l) => `&middot; ${l}`).join('<br>');
+  app.appendChild(log);
 }
 
 function doAction(action) {
