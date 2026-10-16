@@ -11,7 +11,14 @@ const bot = new BotController();
 const MAX_SEATS = 4;
 const BOT_DELAY = 600; // ms between bot moves
 
-const JSON_HEADERS = { 'Content-Type': 'application/json' };
+// The Android app runs at https://localhost, so its API calls are
+// cross-origin — every response needs CORS headers.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+const JSON_HEADERS = { 'Content-Type': 'application/json', ...CORS };
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: JSON_HEADERS });
@@ -161,6 +168,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS });
+    }
 
     if (path === '/api/create' && request.method === 'POST') {
       const body = await request.json().catch(() => ({}));

@@ -56,6 +56,24 @@ async function post(path, body) {
   return res.json();
 }
 
+// Pressing the phone's Back button should return to the menu, not close the
+// app. We push one history entry when we leave the menu, and pop back to it.
+let pushed = false;
+function enterScreen() {
+  if (!pushed) {
+    try {
+      history.pushState({ s: 1 }, '');
+      pushed = true;
+    } catch {}
+  }
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => {
+    pushed = false;
+    renderHome();
+  });
+}
+
 // ---------- HOME ----------
 function renderHome() {
   stopPoll();
@@ -107,6 +125,7 @@ function renderHome() {
 // ---------- SOLO ----------
 function startSolo(gameId) {
   mode = 'solo';
+  enterScreen();
   const GameClass = getGame(gameId);
   const players = [
     new Player({ id: 'p1', name: 'You', isHuman: true }),
@@ -168,6 +187,10 @@ function renderOnlineMenu() {
   const codeInput = el('input');
   codeInput.placeholder = 'Room code';
   codeInput.style.textTransform = 'uppercase';
+  try {
+    const pre = new URLSearchParams(location.search || '').get('room');
+    if (pre) codeInput.value = pre.toUpperCase();
+  } catch {}
   const bJoin = el('button', null, 'Join room');
   bJoin.onclick = async () => {
     const r = await post('/api/join', {
@@ -192,6 +215,7 @@ function renderOnlineMenu() {
 }
 
 function renderLobby() {
+  enterScreen();
   app.innerHTML = '';
   const wrap = el('div', 'home');
   wrap.appendChild(el('h2', null, 'Room ' + online.code));
@@ -209,7 +233,17 @@ function renderLobby() {
   };
   wrap.appendChild(startBtn);
 
-  const leave = el('button', 'secondary', 'Leave');
+  const webUrl = API_BASE || (typeof location !== 'undefined' ? location.origin : '');
+  const invite =
+    `Join my Master Card Game! Room code: ${online.code}\n` +
+    `Open the app, tap "Play with Friends" → Join → enter this code.\n` +
+    `(No app? Open in browser: ${webUrl}/?room=${online.code})`;
+  const wa = el('a', 'dl-link', 'Share on WhatsApp');
+  wa.href = `https://wa.me/?text=${encodeURIComponent(invite)}`;
+  wa.target = '_blank';
+  wrap.appendChild(wa);
+
+  const leave = el('button', 'secondary', 'Menu');
   leave.onclick = renderHome;
   wrap.appendChild(leave);
   app.appendChild(wrap);
@@ -280,7 +314,12 @@ function renderTable() {
   let line = v.game;
   if (v.round) line += ` &nbsp;·&nbsp; Round <b>${v.round}/${v.totalRounds}</b>`;
   else line += ` &nbsp;·&nbsp; Pot <b>${v.pot}</b>`;
-  if (v.trump) line += ` &nbsp;·&nbsp; Trump <b>${v.trump}</b>`;
+  if (v.trump) {
+    const sym = SUIT_SYM[v.trump] || v.trump;
+    const red = RED.has(v.trump) ? ' red' : '';
+    const rk = v.trumpCard ? v.trumpCard.slice(0, -1) : '';
+    line += ` &nbsp;·&nbsp; Trump <span class="tcard${red}">${rk}${sym}</span>`;
+  }
   if (v.phase === 'auction') line += ` &nbsp;·&nbsp; Auction (highest <b>${v.highestCall ?? '—'}</b>)`;
   if (v.phase === 'trump') line += ` &nbsp;·&nbsp; <b>Choose trump</b>`;
   if (v.phase === 'trump2') line += ` &nbsp;·&nbsp; <b>Choose trump (10+ override)</b>`;
@@ -291,11 +330,11 @@ function renderTable() {
   // control row
   const ctrl = el('div', 'controls');
   if (mode === 'solo') {
-    const ng = el('button', 'secondary', 'New game');
+    const ng = el('button', 'secondary', 'Menu');
     ng.onclick = renderHome;
     ctrl.appendChild(ng);
   } else if (mode === 'online') {
-    const lv = el('button', 'secondary', 'Leave');
+    const lv = el('button', 'secondary', 'Menu');
     lv.onclick = () => {
       stopPoll();
       renderHome();
@@ -348,8 +387,25 @@ function renderTable() {
     seat.appendChild(el('div', 'name', `<span>${p.name}${youTag}</span>`));
     if (extra) seat.appendChild(el('div', 'meta', extra.replace(/^ · /, '')));
 
+    // During play, the cards themselves are the buttons.
+    const legalPlays = new Set(
+      (v.legalActions || []).filter((a) => a.type === 'play').map((a) => a.card)
+    );
+    const canPlay = p.id === myId && v.currentPlayerId === myId && legalPlays.size > 0;
+
     const cards = el('div', 'cards');
-    for (const label of p.cards) cards.appendChild(cardEl(label));
+    for (const label of p.cards) {
+      const ce = cardEl(label);
+      if (canPlay) {
+        if (legalPlays.has(label)) {
+          ce.classList.add('playable');
+          ce.onclick = () => doAction({ type: 'play', card: label });
+        } else {
+          ce.classList.add('dim');
+        }
+      }
+      cards.appendChild(ce);
+    }
     seat.appendChild(cards);
     return seat;
   }
@@ -370,10 +426,14 @@ function renderTable() {
   if (v.over) {
     actions.appendChild(el('div', 'banner', `${v.winnerName || 'Nobody'} wins!`));
   } else if (v.currentPlayerId === myId) {
-    for (const action of v.legalActions) {
+    const nonPlay = v.legalActions.filter((a) => a.type !== 'play');
+    for (const action of nonPlay) {
       const b = el('button', action.type === 'see' || action.type === 'pass' ? 'secondary' : null, action.label);
       b.onclick = () => doAction(action);
       actions.appendChild(b);
+    }
+    if (nonPlay.length === 0 && v.legalActions.length > 0) {
+      actions.appendChild(el('div', 'hint', 'Tap a card in your hand to play it'));
     }
   } else {
     const who = v.players.find((p) => p.id === v.currentPlayerId);

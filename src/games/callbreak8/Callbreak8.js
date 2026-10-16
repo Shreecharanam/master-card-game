@@ -40,6 +40,7 @@ export class Callbreak8 extends GameEngine {
       turnIndex: 0,
       startIndex: 0, // auction winner; leads the first trick
       trump: null,
+      trumpCard: null, // one card shown to everyone as the trump indicator
       trumpHolderId: null, // who is choosing the trump right now
       auction: {}, // playerId -> number | 'pass'
       highestCall: null,
@@ -66,6 +67,7 @@ export class Callbreak8 extends GameEngine {
   startRound(state) {
     state.phase = 'auction';
     state.trump = null;
+    state.trumpCard = null;
     state.auction = {};
     state.highestCall = null;
     state.highestCallerId = null;
@@ -204,6 +206,7 @@ export class Callbreak8 extends GameEngine {
     }
     state.trump = action.suit;
     state.trumpHolderId = state.players[state.turnIndex].id;
+    state.trumpCard = this.pickTrumpCard(state, state.turnIndex, action.suit);
     state.phase = 'calling';
     state.turnIndex = (state.dealerIndex + 1) % state.players.length;
     this.log(`Trump is ${SUIT_LABEL[action.suit]}. Everyone declares their call (min 1).`);
@@ -216,10 +219,19 @@ export class Callbreak8 extends GameEngine {
       throw new Error('Callbreak 13: expected a trump suit');
     }
     state.trump = action.suit;
+    state.trumpCard = this.pickTrumpCard(state, state.turnIndex, action.suit);
     state.phase = 'playing';
     state.turnIndex = state.startIndex; // the auction winner still leads
     this.log(`Trump overridden to ${SUIT_LABEL[action.suit]}. Play begins.`);
     return state;
+  }
+
+  // A card of the trump suit from the chooser's hand — shown to everyone.
+  pickTrumpCard(state, index, suit) {
+    const cards = state.players[index].hand.filter((c) => c.suit === suit);
+    if (cards.length === 0) return null;
+    const highest = cards.reduce((a, b) => (b.rank > a.rank ? b : a));
+    return highest.label;
   }
 
   // ---- trick calls -----------------------------------------------------
@@ -342,6 +354,7 @@ export class Callbreak8 extends GameEngine {
     const base = super.snapshot(state, viewerId);
     if (!base) return base;
     base.trump = state.trump;
+    base.trumpCard = state.trumpCard;
     base.trumpHolderId = state.trumpHolderId;
     base.round = state.round;
     base.totalRounds = state.totalRounds;
