@@ -36,11 +36,12 @@ jobs:
           p = 'android/app/src/main/AndroidManifest.xml'
           s = open(p).read()
           s = re.sub(r'\s*android:screenOrientation="[^"]*"', '', s)
-          s = s.replace('<activity ', '<activity android:screenOrientation="fullSensor" ', 1)
+          s = re.sub(r'<activity\b', '<activity android:screenOrientation="fullSensor"', s, count=1)
           open(p, 'w').write(s)
-          print('orientation set to fullSensor')
+          m = re.search(r'<activity\b[^>]*', s)
+          print('activity tag ->', (m.group(0) if m else 'NOT FOUND')[:160])
           PY
-          grep -o 'screenOrientation="[^"]*"' android/app/src/main/AndroidManifest.xml || true
+          grep -c fullSensor android/app/src/main/AndroidManifest.xml
 
       - name: Sync web assets
         run: npx cap sync android
