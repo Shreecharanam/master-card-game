@@ -84,6 +84,22 @@ function cardEl(label) {
   return div;
 }
 
+// Arrange a hand the way a player would: same suit together, high to low.
+// Blacks first (spades, clubs), then reds (hearts, diamonds).
+const SUIT_ORDER = { S: 0, C: 1, H: 2, D: 3 };
+function rankVal(label) {
+  const r = label.slice(0, -1);
+  return r === 'A' ? 14 : r === 'K' ? 13 : r === 'Q' ? 12 : r === 'J' ? 11 : Number(r) || 0;
+}
+function sortHand(cards) {
+  return [...cards].sort((a, b) => {
+    const sa = SUIT_ORDER[a.slice(-1)] ?? 9;
+    const sb = SUIT_ORDER[b.slice(-1)] ?? 9;
+    if (sa !== sb) return sa - sb;
+    return rankVal(b) - rankVal(a);
+  });
+}
+
 function initials(name) {
   return (name || '?').trim().slice(0, 1).toUpperCase();
 }
@@ -598,9 +614,10 @@ function renderTable() {
     const canPlay = v.currentPlayerId === myId && legalPlays.size > 0;
 
     const hand = el('div', 'hand');
-    const n = me.cards.length;
+    const ordered = sortHand(me.cards);
+    const n = ordered.length;
     const mid = (n - 1) / 2;
-    me.cards.forEach((label, i) => {
+    ordered.forEach((label, i) => {
       const ce = cardEl(label);
       ce.classList.add('hand-card');
       const rot = (i - mid) * 1.5;
