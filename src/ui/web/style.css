@@ -224,3 +224,34 @@ a.dl-link {
 .friend-row > span { flex: 1; font-weight: 700; }
 .friend-row button { padding: 8px 12px; }
 .label { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; }
+
+/* ---------- layout fixes: fit all 13 cards, no clipping, landscape ---------- */
+.hand { min-height: 74px; padding: 14px 0 8px; overflow: visible; }
+.hand .card { width: 40px; height: 58px; margin-left: -18px; }
+.hand .card .corner .rk { font-size: 11px; }
+.hand .card .corner .st { font-size: 10px; }
+.hand .card .big { font-size: 16px; }
+.myhand-wrap { padding-bottom: 20px; }
+
+/* compact controls + action buttons (13 call chips must fit) */
+.controls button { padding: 8px 13px; font-size: 13px; }
+#actions { gap: 7px; margin: 14px 0; }
+#actions button { padding: 9px 12px; font-size: 13.5px; min-width: 52px; }
+#actions .hint { width: 100%; }
+
+/* landscape: shorter table, slightly larger cards */
+@media (orientation: landscape) {
+  main { max-width: 100%; padding: 8px 16px 18px; }
+  .table { min-height: 190px; padding: 10px 12px; }
+  .avatar { width: 38px; height: 38px; font-size: 15px; }
+  .hand .card { width: 46px; height: 66px; margin-left: -20px; }
+  .hand { min-height: 78px; padding-top: 10px; }
+  .myhand-wrap { margin-bottom: 8px; }
+  #log { display: none; }
+}
+
+/* very narrow phones */
+@media (max-width: 350px) {
+  .hand .card { width: 34px; height: 50px; margin-left: -15px; }
+  .hand .card .big { font-size: 14px; }
+}

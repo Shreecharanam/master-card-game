@@ -29,6 +29,19 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Allow screen rotation (portrait + landscape)
+        run: |
+          python3 - <<'PY'
+          import re
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          s = re.sub(r'\s*android:screenOrientation="[^"]*"', '', s)
+          s = s.replace('<activity ', '<activity android:screenOrientation="fullSensor" ', 1)
+          open(p, 'w').write(s)
+          print('orientation set to fullSensor')
+          PY
+          grep -o 'screenOrientation="[^"]*"' android/app/src/main/AndroidManifest.xml || true
+
       - name: Sync web assets
         run: npx cap sync android
 

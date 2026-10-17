@@ -538,11 +538,11 @@ function renderTable() {
   // control row
   const ctrl = el('div', 'controls');
   if (mode === 'solo') {
-    const ng = el('button', 'secondary', 'Menu');
+    const ng = el('button', 'ghost', 'Menu');
     ng.onclick = renderHome;
     ctrl.appendChild(ng);
   } else if (mode === 'online') {
-    const lv = el('button', 'secondary', 'Menu');
+    const lv = el('button', 'ghost', 'Menu');
     lv.onclick = () => {
       stopPoll();
       renderHome();
@@ -603,8 +603,8 @@ function renderTable() {
     me.cards.forEach((label, i) => {
       const ce = cardEl(label);
       ce.classList.add('hand-card');
-      const rot = (i - mid) * 2.4;
-      const lift = Math.abs(i - mid) * 1.6;
+      const rot = (i - mid) * 1.5;
+      const lift = Math.abs(i - mid) * 1.1;
       ce.style.transform = `rotate(${rot}deg) translateY(${lift}px)`;
       if (canPlay) {
         if (legalPlays.has(label)) {
